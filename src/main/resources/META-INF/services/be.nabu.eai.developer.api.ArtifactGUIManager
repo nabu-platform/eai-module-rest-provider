@@ -1,2 +1,2 @@
-be.nabu.eai.module.rest.provider.RESTVMGUIManager
-be.nabu.eai.module.rest.provider.iface.WebRestArtifactGUIManager
+be.nabu.eai.module.rest.provider.RESTServiceGUIManager
+be.nabu.eai.module.rest.provider.iface.RESTInterfaceGUIManager

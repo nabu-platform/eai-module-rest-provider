@@ -6,16 +6,16 @@ import java.util.List;
 import be.nabu.eai.repository.artifacts.container.ContainerArtifactManager;
 import be.nabu.libs.resources.api.ResourceContainer;
 
-public class RESTVMManager extends ContainerArtifactManager<RESTVMService> {
+public class RESTServiceManager extends ContainerArtifactManager<RESTService> {
 	
 	@Override
-	public RESTVMService newInstance(String id) {
-		return new RESTVMService(id);
+	public RESTService newInstance(String id) {
+		return new RESTService(id);
 	}
 
 	@Override
-	public Class<RESTVMService> getArtifactClass() {
-		return RESTVMService.class;
+	public Class<RESTService> getArtifactClass() {
+		return RESTService.class;
 	}
 
 	@Override

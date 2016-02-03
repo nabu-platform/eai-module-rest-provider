@@ -1,4 +1,4 @@
-package be.nabu.eai.module.rest.provider;
+package be.nabu.eai.module.rest.provider.iface;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -9,7 +9,9 @@ import javafx.scene.control.Menu;
 import javafx.scene.control.MenuItem;
 import be.nabu.eai.developer.MainController;
 import be.nabu.eai.developer.api.EntryContextMenuProvider;
-import be.nabu.eai.module.rest.provider.iface.WebRestArtifact;
+import be.nabu.eai.module.rest.provider.RESTServiceGUIManager;
+import be.nabu.eai.module.rest.provider.RESTServiceManager;
+import be.nabu.eai.module.rest.provider.RESTService;
 import be.nabu.eai.repository.api.Entry;
 import be.nabu.eai.repository.api.ExtensibleEntry;
 import be.nabu.eai.repository.resources.RepositoryEntry;
@@ -22,11 +24,11 @@ import be.nabu.libs.services.vm.api.VMService;
 import be.nabu.libs.types.api.ComplexType;
 import be.nabu.libs.types.base.ValueImpl;
 
-public class RESTAPIContextMenu implements EntryContextMenuProvider {
+public class RESTInterfaceContextMenu implements EntryContextMenuProvider {
 
 	@Override
 	public MenuItem getContext(Entry entry) {
-		if (entry.isNode() && WebRestArtifact.class.isAssignableFrom(entry.getNode().getArtifactClass()) && entry.isEditable() && entry.getParent() instanceof ExtensibleEntry) {
+		if (entry.isNode() && RESTInterfaceArtifact.class.isAssignableFrom(entry.getNode().getArtifactClass()) && entry.isEditable() && entry.getParent() instanceof ExtensibleEntry) {
 			try {
 				// find all implementations
 				List<SimpleVMServiceDefinition> implementations = new ArrayList<SimpleVMServiceDefinition>();
@@ -85,14 +87,14 @@ public class RESTAPIContextMenu implements EntryContextMenuProvider {
 
 	private void addImplementation(Entry entry, SimpleVMServiceDefinition implementation) {
 		try {
-			WebRestArtifact iface = (WebRestArtifact) entry.getNode().getArtifact();
+			RESTInterfaceArtifact iface = (RESTInterfaceArtifact) entry.getNode().getArtifact();
 			MainController.getInstance().close(entry.getId());
 			iface.forceLoad();
 			ExtensibleEntry parent = (ExtensibleEntry) entry.getParent();
 			parent.deleteChild(entry.getName(), false);
-			RESTVMManager manager = new RESTVMManager();
+			RESTServiceManager manager = new RESTServiceManager();
 			final RepositoryEntry newEntry = parent.createNode(entry.getName(), manager, true);
-			RESTVMService newInstance = new RESTVMGUIManager().newInstance(MainController.getInstance(), newEntry);
+			RESTService newInstance = new RESTServiceGUIManager().newInstance(MainController.getInstance(), newEntry);
 			newInstance.addArtifact("api", iface, null);
 			if (implementation != null) {
 				implementation.getPipeline().setProperty(new ValueImpl<DefinedServiceInterface>(PipelineInterfaceProperty.getInstance(), new DefinedServiceInterface() {

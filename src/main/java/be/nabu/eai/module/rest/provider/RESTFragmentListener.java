@@ -1,4 +1,4 @@
-package be.nabu.eai.module.rest.provider.iface;
+package be.nabu.eai.module.rest.provider;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -14,8 +14,9 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import be.nabu.eai.module.rest.RESTUtils;
+import be.nabu.eai.module.rest.WebResponseType;
+import be.nabu.eai.module.rest.provider.iface.RESTInterfaceArtifact;
 import be.nabu.eai.repository.api.Repository;
-import be.nabu.eai.repository.artifacts.web.rest.WebResponseType;
 import be.nabu.libs.authentication.api.Authenticator;
 import be.nabu.libs.authentication.api.PermissionHandler;
 import be.nabu.libs.authentication.api.RoleHandler;
@@ -59,7 +60,7 @@ import be.nabu.utils.mime.impl.MimeHeader;
 import be.nabu.utils.mime.impl.MimeUtils;
 import be.nabu.utils.mime.impl.PlainMimeContentPart;
 
-public class WebRestListener implements EventHandler<HTTPRequest, HTTPResponse> {
+public class RESTFragmentListener implements EventHandler<HTTPRequest, HTTPResponse> {
 
 	private Logger logger = LoggerFactory.getLogger(getClass());
 	private PathAnalysis pathAnalysis;
@@ -73,9 +74,9 @@ public class WebRestListener implements EventHandler<HTTPRequest, HTTPResponse> 
 	private Charset charset;
 	private boolean allowEncoding;
 	private Repository repository;
-	private WebRestArtifact webArtifact;
+	private RESTInterfaceArtifact webArtifact;
 
-	public WebRestListener(Repository repository, String serverPath, String realm, SessionProvider sessionProvider, PermissionHandler permissionHandler, RoleHandler roleHandler, TokenValidator tokenValidator, WebRestArtifact webArtifact, DefinedService service, Charset charset, boolean allowEncoding) throws IOException {
+	public RESTFragmentListener(Repository repository, String serverPath, String realm, SessionProvider sessionProvider, PermissionHandler permissionHandler, RoleHandler roleHandler, TokenValidator tokenValidator, RESTInterfaceArtifact webArtifact, DefinedService service, Charset charset, boolean allowEncoding) throws IOException {
 		this.repository = repository;
 		this.serverPath = serverPath;
 		this.realm = realm;

@@ -8,7 +8,7 @@ import java.util.Map;
 import be.nabu.eai.developer.MainController;
 import be.nabu.eai.developer.api.ContainerArtifactGUIManager;
 import be.nabu.eai.developer.managers.VMServiceGUIManager;
-import be.nabu.eai.module.rest.provider.iface.WebRestArtifact;
+import be.nabu.eai.module.rest.provider.iface.RESTInterfaceArtifact;
 import be.nabu.eai.repository.resources.RepositoryEntry;
 import be.nabu.libs.property.api.Property;
 import be.nabu.libs.property.api.Value;
@@ -19,10 +19,10 @@ import be.nabu.libs.services.vm.SimpleVMServiceDefinition;
 import be.nabu.libs.types.base.ValueImpl;
 import be.nabu.libs.types.structure.Structure;
 
-public class RESTVMGUIManager extends ContainerArtifactGUIManager<RESTVMService> {
+public class RESTServiceGUIManager extends ContainerArtifactGUIManager<RESTService> {
 
-	public RESTVMGUIManager() {
-		super("REST Service", RESTVMService.class, new RESTVMManager());
+	public RESTServiceGUIManager() {
+		super("REST Service", RESTService.class, new RESTServiceManager());
 	}
 
 	@Override
@@ -31,9 +31,9 @@ public class RESTVMGUIManager extends ContainerArtifactGUIManager<RESTVMService>
 	}
 
 	@Override
-	public RESTVMService newInstance(MainController controller, RepositoryEntry entry, Value<?>...values) throws IOException {
-		RESTVMService restvmService = new RESTVMService(entry.getId());
-		WebRestArtifact webRestArtifact = new WebRestArtifact("$self:api", entry.getContainer(), entry.getRepository());
+	public RESTService newInstance(MainController controller, RepositoryEntry entry, Value<?>...values) throws IOException {
+		RESTService restvmService = new RESTService(entry.getId());
+		RESTInterfaceArtifact webRestArtifact = new RESTInterfaceArtifact("$self:api", entry.getContainer(), entry.getRepository());
 		restvmService.addArtifact("api", webRestArtifact, null);
 		Pipeline pipeline = new Pipeline(new Structure(), new Structure());
 		pipeline.setProperty(new ValueImpl<DefinedServiceInterface>(PipelineInterfaceProperty.getInstance(), webRestArtifact));

@@ -7,15 +7,15 @@ import javax.xml.bind.annotation.XmlRootElement;
 import javax.xml.bind.annotation.XmlType;
 import javax.xml.bind.annotation.adapters.XmlJavaTypeAdapter;
 
-import be.nabu.eai.repository.artifacts.web.rest.WebMethod;
-import be.nabu.eai.repository.artifacts.web.rest.WebResponseType;
+import be.nabu.eai.module.rest.WebMethod;
+import be.nabu.eai.module.rest.WebResponseType;
 import be.nabu.eai.repository.jaxb.ArtifactXMLAdapter;
 import be.nabu.libs.types.api.DefinedType;
 
-@XmlRootElement(name = "webRestArtifact")
+@XmlRootElement(name = "restInterface")
 @XmlType(propOrder = { "method", "path", "queryParameters", "cookieParameters", "sessionParameters", "headerParameters", "responseHeaders", "roles",
 			"preferredResponseType", "asynchronous", "inputAsStream", "outputAsStream", "input", "output", "includeRealm", "sanitizeInput" })
-public class WebRestArtifactConfiguration {
+public class RESTInterfaceConfiguration {
 
 	private DefinedType input, output;
 	private String path, queryParameters, cookieParameters, sessionParameters, headerParameters, responseHeaders;

@@ -12,13 +12,13 @@ import be.nabu.eai.repository.api.Entry;
 import be.nabu.eai.repository.api.ResourceEntry;
 import be.nabu.libs.services.api.DefinedService;
 
-public class RESTVMContextMenu implements EntryContextMenuProvider {
+public class RESTServiceContextMenu implements EntryContextMenuProvider {
 
 	@Override
 	public MenuItem getContext(Entry entry) {
-		if (entry.isNode() && RESTVMService.class.isAssignableFrom(entry.getNode().getArtifactClass()) && entry.isEditable()) {
+		if (entry.isNode() && RESTService.class.isAssignableFrom(entry.getNode().getArtifactClass()) && entry.isEditable()) {
 			try {
-				final RESTVMService service = (RESTVMService) entry.getNode().getArtifact();
+				final RESTService service = (RESTService) entry.getNode().getArtifact();
 				if (service.getArtifact("security") == null) {
 					MenuItem item = new MenuItem("Add Security");
 					item.setGraphic(MainController.loadGraphic("add.png"));
@@ -27,7 +27,7 @@ public class RESTVMContextMenu implements EntryContextMenuProvider {
 						public void handle(ActionEvent arg0) {
 							service.addArtifact("security", new VMAuthorizationService((DefinedService) service.getArtifact("implementation")), service.getConfiguration(service.getArtifact("implementation")));
 							try {
-								new RESTVMManager().save((ResourceEntry) entry, service);
+								new RESTServiceManager().save((ResourceEntry) entry, service);
 							}
 							catch (IOException e) {
 								throw new RuntimeException(e);
@@ -45,7 +45,7 @@ public class RESTVMContextMenu implements EntryContextMenuProvider {
 						public void handle(ActionEvent arg0) {
 							service.removeArtifact("security");
 							try {
-								new RESTVMManager().save((ResourceEntry) entry, service);
+								new RESTServiceManager().save((ResourceEntry) entry, service);
 							}
 							catch (IOException e) {
 								throw new RuntimeException(e);

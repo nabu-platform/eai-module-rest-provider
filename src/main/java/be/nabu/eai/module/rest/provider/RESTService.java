@@ -11,8 +11,7 @@ import java.util.Set;
 
 import be.nabu.eai.module.authorization.vm.VMAuthorizationService;
 import be.nabu.eai.module.authorization.vm.VMServiceAuthorizer;
-import be.nabu.eai.module.rest.provider.iface.WebRestArtifact;
-import be.nabu.eai.module.rest.provider.iface.WebRestListener;
+import be.nabu.eai.module.rest.provider.iface.RESTInterfaceArtifact;
 import be.nabu.eai.repository.EAIResourceRepository;
 import be.nabu.eai.repository.artifacts.container.BaseContainerArtifact;
 import be.nabu.eai.repository.artifacts.web.WebArtifact;
@@ -35,11 +34,11 @@ import be.nabu.libs.services.vm.SimpleVMServiceDefinition;
 import be.nabu.libs.services.vm.VMServiceInstance;
 import be.nabu.libs.types.api.ComplexContent;
 
-public class RESTVMService extends BaseContainerArtifact implements WebFragment, DefinedService, ServiceAuthorizerProvider {
+public class RESTService extends BaseContainerArtifact implements WebFragment, DefinedService, ServiceAuthorizerProvider {
 
 	private Map<String, EventSubscription<?, ?>> subscriptions = new HashMap<String, EventSubscription<?, ?>>();
 	
-	public RESTVMService(String id) {
+	public RESTService(String id) {
 		super(id);
 	}
 
@@ -61,7 +60,7 @@ public class RESTVMService extends BaseContainerArtifact implements WebFragment,
 			restPath += path.replaceFirst("^[/]+", "");
 		}
 		synchronized(subscriptions) {
-			WebRestListener listener = new WebRestListener(
+			RESTFragmentListener listener = new RESTFragmentListener(
 				artifact.getRepository(),
 				restPath, 
 				artifact.getRealm(), 
@@ -69,7 +68,7 @@ public class RESTVMService extends BaseContainerArtifact implements WebFragment,
 				artifact.getPermissionHandler(), 
 				artifact.getRoleHandler(), 
 				artifact.getTokenValidator(), 
-				getArtifact(WebRestArtifact.class),
+				getArtifact(RESTInterfaceArtifact.class),
 				this, 
 				artifact.getConfiguration().getCharset() == null ? Charset.defaultCharset() : Charset.forName(artifact.getConfiguration().getCharset()), 
 				!EAIResourceRepository.isDevelopment()
@@ -94,7 +93,7 @@ public class RESTVMService extends BaseContainerArtifact implements WebFragment,
 	}
 	
 	private String getPath(String parent) throws IOException {
-		WebRestArtifact artifact = getArtifact(WebRestArtifact.class);
+		RESTInterfaceArtifact artifact = getArtifact(RESTInterfaceArtifact.class);
 		if (artifact.getConfiguration().getPath() == null || artifact.getConfiguration().getPath().isEmpty() || artifact.getConfiguration().getPath().trim().equals("/")) {
 			return parent;
 		}
@@ -111,7 +110,7 @@ public class RESTVMService extends BaseContainerArtifact implements WebFragment,
 	@Override
 	public List<Permission> getPermissions(WebArtifact webArtifact, String path) {
 		List<Permission> permissions = new ArrayList<Permission>();
-		WebRestArtifact artifact = getArtifact(WebRestArtifact.class);
+		RESTInterfaceArtifact artifact = getArtifact(RESTInterfaceArtifact.class);
 		permissions.add(new Permission() {
 			@Override
 			public String getContext() {
@@ -153,7 +152,7 @@ public class RESTVMService extends BaseContainerArtifact implements WebFragment,
 		return new ServiceInstance() {
 			@Override
 			public Service getDefinition() {
-				return RESTVMService.this;
+				return RESTService.this;
 			}
 			@Override
 			public ComplexContent execute(ExecutionContext executionContext, ComplexContent input) throws ServiceException {

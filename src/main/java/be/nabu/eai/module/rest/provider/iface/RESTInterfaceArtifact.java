@@ -22,13 +22,13 @@ import be.nabu.libs.types.properties.MaxOccursProperty;
 import be.nabu.libs.types.properties.MinOccursProperty;
 import be.nabu.libs.types.structure.Structure;
 
-public class WebRestArtifact extends JAXBArtifact<WebRestArtifactConfiguration> implements DefinedServiceInterface {
+public class RESTInterfaceArtifact extends JAXBArtifact<RESTInterfaceConfiguration> implements DefinedServiceInterface {
 
 	private Logger logger = LoggerFactory.getLogger(getClass());
 	private Structure input, output;
 	
-	public WebRestArtifact(String id, ResourceContainer<?> directory, Repository repository) {
-		super(id, directory, repository, "webrestartifact.xml", WebRestArtifactConfiguration.class);
+	public RESTInterfaceArtifact(String id, ResourceContainer<?> directory, Repository repository) {
+		super(id, directory, repository, "webrestartifact.xml", RESTInterfaceConfiguration.class);
 	}
 	
 	@Override
