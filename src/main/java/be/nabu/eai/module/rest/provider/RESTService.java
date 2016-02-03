@@ -12,7 +12,7 @@ import java.util.Set;
 import be.nabu.eai.module.authorization.vm.VMAuthorizationService;
 import be.nabu.eai.module.authorization.vm.VMServiceAuthorizer;
 import be.nabu.eai.module.rest.provider.iface.RESTInterfaceArtifact;
-import be.nabu.eai.module.web.application.WebArtifact;
+import be.nabu.eai.module.web.application.WebApplication;
 import be.nabu.eai.module.web.application.WebFragment;
 import be.nabu.eai.repository.EAIResourceRepository;
 import be.nabu.eai.repository.artifacts.container.BaseContainerArtifact;
@@ -42,12 +42,12 @@ public class RESTService extends BaseContainerArtifact implements WebFragment, D
 		super(id);
 	}
 
-	private String getKey(WebArtifact artifact, String path) {
+	private String getKey(WebApplication artifact, String path) {
 		return artifact.getId() + ":" + path;
 	}
 	
 	@Override
-	public void start(WebArtifact artifact, String path) throws IOException {
+	public void start(WebApplication artifact, String path) throws IOException {
 		String key = getKey(artifact, path);
 		if (subscriptions.containsKey(key)) {
 			stop(artifact, path);
@@ -80,7 +80,7 @@ public class RESTService extends BaseContainerArtifact implements WebFragment, D
 	}
 
 	@Override
-	public void stop(WebArtifact artifact, String path) {
+	public void stop(WebApplication artifact, String path) {
 		String key = getKey(artifact, path);
 		if (subscriptions.containsKey(key)) {
 			synchronized(subscriptions) {
@@ -108,7 +108,7 @@ public class RESTService extends BaseContainerArtifact implements WebFragment, D
 	}
 
 	@Override
-	public List<Permission> getPermissions(WebArtifact webArtifact, String path) {
+	public List<Permission> getPermissions(WebApplication webArtifact, String path) {
 		List<Permission> permissions = new ArrayList<Permission>();
 		RESTInterfaceArtifact artifact = getArtifact(RESTInterfaceArtifact.class);
 		permissions.add(new Permission() {
@@ -135,7 +135,7 @@ public class RESTService extends BaseContainerArtifact implements WebFragment, D
 	}
 
 	@Override
-	public boolean isStarted(WebArtifact artifact, String path) {
+	public boolean isStarted(WebApplication artifact, String path) {
 		return subscriptions.containsKey(getKey(artifact, path));
 	}
 
