@@ -16,6 +16,11 @@ public class RESTInterfaceGUIManager extends BaseJAXBGUIManager<RESTInterfaceCon
 	}
 
 	@Override
+	public String getCategory() {
+		return "Protocols";
+	}
+	
+	@Override
 	protected List<Property<?>> getCreateProperties() {
 		return null;
 	}

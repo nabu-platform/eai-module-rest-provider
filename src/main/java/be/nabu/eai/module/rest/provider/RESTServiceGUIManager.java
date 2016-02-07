@@ -22,7 +22,7 @@ import be.nabu.libs.types.structure.Structure;
 public class RESTServiceGUIManager extends ContainerArtifactGUIManager<RESTService> {
 
 	public RESTServiceGUIManager() {
-		super("REST Service", RESTService.class, new RESTServiceManager());
+		super("REST Provider Service", RESTService.class, new RESTServiceManager());
 	}
 
 	@Override
@@ -50,6 +50,6 @@ public class RESTServiceGUIManager extends ContainerArtifactGUIManager<RESTServi
 	
 	@Override
 	public String getCategory() {
-		return "Web";
+		return "Services";
 	}
 }
