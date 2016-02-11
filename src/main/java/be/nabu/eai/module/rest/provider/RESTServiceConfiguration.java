@@ -10,7 +10,7 @@ import be.nabu.eai.repository.jaxb.ArtifactXMLAdapter;
 import be.nabu.libs.types.api.DefinedType;
 
 @XmlRootElement(name = "webRestArtifact")
-@XmlType(propOrder = { "method", "path", "queryParameters", "cookieParameters", "sessionParameters", "headerParameters", "responseHeaders", "role", "preferredResponseType", "asynchronous", "inputAsStream", "outputAsStream", "input", "output" })
+@XmlType(propOrder = { "method", "path", "queryParameters", "cookieParameters", "sessionParameters", "headerParameters", "responseHeaders", "role", "preferredResponseType", "asynchronous", "inputAsStream", "outputAsStream", "input", "output", "acceptedLanguages" })
 public class RESTServiceConfiguration {
 
 	private DefinedType input, output;
@@ -20,7 +20,8 @@ public class RESTServiceConfiguration {
 	private Boolean asynchronous;
 	private WebResponseType preferredResponseType;
 	private Boolean inputAsStream, outputAsStream;
-
+	private Boolean acceptedLanguages;
+	
 	public String getPath() {
 		return path;
 	}
@@ -107,6 +108,12 @@ public class RESTServiceConfiguration {
 	}
 	public void setResponseHeaders(String responseHeaders) {
 		this.responseHeaders = responseHeaders;
+	}
+	public Boolean getAcceptedLanguages() {
+		return acceptedLanguages;
+	}
+	public void setAcceptedLanguages(Boolean acceptedLanguages) {
+		this.acceptedLanguages = acceptedLanguages;
 	}
 	
 }

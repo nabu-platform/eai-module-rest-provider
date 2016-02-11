@@ -13,8 +13,7 @@ import be.nabu.eai.repository.jaxb.ArtifactXMLAdapter;
 import be.nabu.libs.types.api.DefinedType;
 
 @XmlRootElement(name = "restInterface")
-@XmlType(propOrder = { "method", "path", "queryParameters", "cookieParameters", "sessionParameters", "headerParameters", "responseHeaders", "roles",
-			"preferredResponseType", "asynchronous", "inputAsStream", "outputAsStream", "input", "output", "includeRealm", "sanitizeInput" })
+@XmlType(propOrder = { "method", "path", "queryParameters", "cookieParameters", "sessionParameters", "headerParameters", "responseHeaders", "roles", "preferredResponseType", "asynchronous", "inputAsStream", "outputAsStream", "input", "output", "includeRealm", "sanitizeInput", "acceptedLanguages" })
 public class RESTInterfaceConfiguration {
 
 	private DefinedType input, output;
@@ -25,6 +24,7 @@ public class RESTInterfaceConfiguration {
 	private WebResponseType preferredResponseType;
 	private Boolean inputAsStream, outputAsStream;
 	private Boolean sanitizeInput;
+	private Boolean acceptedLanguages;
 
 	public String getPath() {
 		return path;
@@ -125,4 +125,11 @@ public class RESTInterfaceConfiguration {
 	public void setSanitizeInput(Boolean sanitizeInput) {
 		this.sanitizeInput = sanitizeInput;
 	}
+	public Boolean getAcceptedLanguages() {
+		return acceptedLanguages;
+	}
+	public void setAcceptedLanguages(Boolean acceptedLanguages) {
+		this.acceptedLanguages = acceptedLanguages;
+	}
+	
 }

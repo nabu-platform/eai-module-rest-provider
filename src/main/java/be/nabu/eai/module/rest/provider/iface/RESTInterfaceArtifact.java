@@ -125,6 +125,9 @@ public class RESTInterfaceArtifact extends JAXBArtifact<RESTInterfaceConfigurati
 			else if (getConfiguration().getInput() != null) {
 				input.add(new ComplexElementImpl("content", (ComplexType) getConfiguration().getInput(), input));
 			}
+			if (getConfiguration().getAcceptedLanguages() != null && getConfiguration().getAcceptedLanguages()) {
+				input.add(new SimpleElementImpl<String>("acceptedLanguages", SimpleTypeWrapperFactory.getInstance().getWrapper().wrap(String.class), input, new ValueImpl<Integer>(MaxOccursProperty.getInstance(), 0), new ValueImpl<Integer>(MinOccursProperty.getInstance(), 0)));
+			}
 			
 			if (getConfiguration().getResponseHeaders() != null && !getConfiguration().getResponseHeaders().trim().isEmpty()) {
 				for (String name : getConfiguration().getResponseHeaders().split("[\\s,]+")) {

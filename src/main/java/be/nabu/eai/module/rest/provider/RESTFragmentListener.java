@@ -188,6 +188,9 @@ public class RESTFragmentListener implements EventHandler<HTTPRequest, HTTPRespo
 					input.set("session/" + element.getName(), sanitize(session.get(element.getName()), sanitizeInput));
 				}
 			}
+			if (input.getType().get("acceptedLanguages") != null && request.getContent() != null) {
+				input.set("acceptedLanguages", MimeUtils.getAcceptedLanguages(request.getContent().getHeaders()));
+			}
 
 			for (String key : analyzed.keySet()) {
 				input.set("path/" + key, sanitize(analyzed.get(key), sanitizeInput));
