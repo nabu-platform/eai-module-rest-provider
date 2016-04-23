@@ -13,18 +13,20 @@ import be.nabu.eai.repository.jaxb.ArtifactXMLAdapter;
 import be.nabu.libs.types.api.DefinedType;
 
 @XmlRootElement(name = "restInterface")
-@XmlType(propOrder = { "method", "path", "queryParameters", "cookieParameters", "sessionParameters", "headerParameters", "responseHeaders", "roles", "preferredResponseType", "asynchronous", "inputAsStream", "outputAsStream", "input", "output", "includeWebApplicationId", "sanitizeInput", "acceptedLanguages" })
+@XmlType(propOrder = { "method", "path", "queryParameters", "cookieParameters", "sessionParameters", "headerParameters", "responseHeaders", "roles", "preferredResponseType", "asynchronous", "inputAsStream", "outputAsStream", "input", "output", "sanitizeInput", "acceptedLanguages", "configurationType" })
 public class RESTInterfaceConfiguration {
 
 	private DefinedType input, output;
 	private String path, queryParameters, cookieParameters, sessionParameters, headerParameters, responseHeaders;
 	private WebMethod method;
 	private List<String> roles;
-	private Boolean asynchronous, includeWebApplicationId;
+	private Boolean asynchronous;
 	private WebResponseType preferredResponseType;
 	private Boolean inputAsStream, outputAsStream;
 	private Boolean sanitizeInput;
 	private Boolean acceptedLanguages;
+	
+	private DefinedType configurationType;
 
 	public String getPath() {
 		return path;
@@ -125,10 +127,12 @@ public class RESTInterfaceConfiguration {
 	public void setAcceptedLanguages(Boolean acceptedLanguages) {
 		this.acceptedLanguages = acceptedLanguages;
 	}
-	public Boolean getIncludeWebApplicationId() {
-		return includeWebApplicationId;
+	@XmlJavaTypeAdapter(value = ArtifactXMLAdapter.class)
+	public DefinedType getConfigurationType() {
+		return configurationType;
 	}
-	public void setIncludeWebApplicationId(Boolean includeWebApplicationId) {
-		this.includeWebApplicationId = includeWebApplicationId;
+	public void setConfigurationType(DefinedType configurationType) {
+		this.configurationType = configurationType;
 	}
+	
 }

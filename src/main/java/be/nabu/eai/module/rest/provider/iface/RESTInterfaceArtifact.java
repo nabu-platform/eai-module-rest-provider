@@ -79,13 +79,8 @@ public class RESTInterfaceArtifact extends JAXBArtifact<RESTInterfaceConfigurati
 		Structure path = new Structure();
 		Structure responseHeader = new Structure();
 		try {
-			// only include the web application id is specifically asked
-			// in the beginning it was always injected but only "generic" rest services actually need it
-			// combine this with the fact that almost all rest services have service validation turned on
-			// and you may want to call the service from another service as well, this becomes a recipe for a "dummy value"
-			// with the boolean, the rest service can explicitly indicate that it actually needs the value to determine the logic
-			if (getConfiguration().getIncludeWebApplicationId() != null && getConfiguration().getIncludeWebApplicationId()) {
-				input.add(new SimpleElementImpl<String>("webApplicationId", SimpleTypeWrapperFactory.getInstance().getWrapper().wrap(String.class), input));
+			if (getConfiguration().getConfigurationType() != null) {
+				input.add(new ComplexElementImpl("configuration", (ComplexType) getConfiguration().getConfigurationType(), input, new ValueImpl<Integer>(MinOccursProperty.getInstance(), 0)));
 			}
 			if (getConfiguration().getQueryParameters() != null && !getConfiguration().getQueryParameters().trim().isEmpty()) {
 				for (String name : getConfiguration().getQueryParameters().split("[\\s,]+")) {

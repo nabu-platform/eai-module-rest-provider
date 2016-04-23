@@ -41,6 +41,7 @@ import be.nabu.libs.services.api.ServiceException;
 import be.nabu.libs.types.TypeUtils;
 import be.nabu.libs.types.api.ComplexContent;
 import be.nabu.libs.types.api.ComplexType;
+import be.nabu.libs.types.api.DefinedType;
 import be.nabu.libs.types.api.Element;
 import be.nabu.libs.types.api.SimpleType;
 import be.nabu.libs.types.binding.api.MarshallableBinding;
@@ -69,6 +70,7 @@ public class RESTFragmentListener implements EventHandler<HTTPRequest, HTTPRespo
 	private boolean allowEncoding;
 	private RESTInterfaceArtifact webArtifact;
 	private WebApplication webApplication;
+	private ComplexContent configuration;
 
 	public RESTFragmentListener(WebApplication webApplication, String serverPath, RESTInterfaceArtifact webArtifact, DefinedService service, Charset charset, boolean allowEncoding) throws IOException {
 		this.webApplication = webApplication;
@@ -82,6 +84,15 @@ public class RESTFragmentListener implements EventHandler<HTTPRequest, HTTPRespo
 			path = path.substring(1);
 		}
 		this.pathAnalysis = GlueListener.analyzePath(path);
+		DefinedType configurationType = webArtifact.getConfiguration().getConfigurationType();
+		if (configurationType != null) {
+			String configurationPath = serverPath == null ? "/" : serverPath;
+			if (!configurationPath.endsWith("/")) {
+				configurationPath += "/";
+			}
+			configurationPath += path;
+			this.configuration = webApplication.getConfigurationFor(configurationPath, (ComplexType) configurationType);
+		}
 	}
 	
 	@Override
@@ -159,8 +170,8 @@ public class RESTFragmentListener implements EventHandler<HTTPRequest, HTTPRespo
 			Map<String, List<String>> queryProperties = URIUtils.getQueryProperties(uri);
 			
 			ComplexContent input = service.getServiceInterface().getInputDefinition().newInstance();
-			if (input.getType().get("webApplicationId") != null) {
-				input.set("webApplicationId", webApplication.getId());
+			if (input.getType().get("configuration") != null) {
+				input.set("configuration", configuration);
 			}
 			if (input.getType().get("query") != null) {
 				for (Element<?> element : TypeUtils.getAllChildren((ComplexType) input.getType().get("query").getType())) {
