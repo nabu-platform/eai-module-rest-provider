@@ -13,14 +13,14 @@ import be.nabu.eai.repository.jaxb.ArtifactXMLAdapter;
 import be.nabu.libs.types.api.DefinedType;
 
 @XmlRootElement(name = "restInterface")
-@XmlType(propOrder = { "method", "path", "queryParameters", "cookieParameters", "sessionParameters", "headerParameters", "responseHeaders", "roles", "preferredResponseType", "asynchronous", "inputAsStream", "outputAsStream", "input", "output", "includeRealm", "sanitizeInput", "acceptedLanguages" })
+@XmlType(propOrder = { "method", "path", "queryParameters", "cookieParameters", "sessionParameters", "headerParameters", "responseHeaders", "roles", "preferredResponseType", "asynchronous", "inputAsStream", "outputAsStream", "input", "output", "includeWebApplicationId", "sanitizeInput", "acceptedLanguages" })
 public class RESTInterfaceConfiguration {
 
 	private DefinedType input, output;
 	private String path, queryParameters, cookieParameters, sessionParameters, headerParameters, responseHeaders;
 	private WebMethod method;
 	private List<String> roles;
-	private Boolean asynchronous, includeRealm;
+	private Boolean asynchronous, includeWebApplicationId;
 	private WebResponseType preferredResponseType;
 	private Boolean inputAsStream, outputAsStream;
 	private Boolean sanitizeInput;
@@ -113,12 +113,6 @@ public class RESTInterfaceConfiguration {
 	public void setResponseHeaders(String responseHeaders) {
 		this.responseHeaders = responseHeaders;
 	}
-	public Boolean getIncludeRealm() {
-		return includeRealm;
-	}
-	public void setIncludeRealm(Boolean includeRealm) {
-		this.includeRealm = includeRealm;
-	}
 	public Boolean getSanitizeInput() {
 		return sanitizeInput;
 	}
@@ -131,5 +125,10 @@ public class RESTInterfaceConfiguration {
 	public void setAcceptedLanguages(Boolean acceptedLanguages) {
 		this.acceptedLanguages = acceptedLanguages;
 	}
-	
+	public Boolean getIncludeWebApplicationId() {
+		return includeWebApplicationId;
+	}
+	public void setIncludeWebApplicationId(Boolean includeWebApplicationId) {
+		this.includeWebApplicationId = includeWebApplicationId;
+	}
 }

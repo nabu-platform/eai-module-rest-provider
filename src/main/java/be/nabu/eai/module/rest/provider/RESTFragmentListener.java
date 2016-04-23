@@ -16,7 +16,7 @@ import org.slf4j.LoggerFactory;
 import be.nabu.eai.module.rest.RESTUtils;
 import be.nabu.eai.module.rest.WebResponseType;
 import be.nabu.eai.module.rest.provider.iface.RESTInterfaceArtifact;
-import be.nabu.eai.repository.api.Repository;
+import be.nabu.eai.module.web.application.WebApplication;
 import be.nabu.libs.authentication.api.Authenticator;
 import be.nabu.libs.authentication.api.PermissionHandler;
 import be.nabu.libs.authentication.api.RoleHandler;
@@ -29,7 +29,6 @@ import be.nabu.libs.http.api.HTTPRequest;
 import be.nabu.libs.http.api.HTTPResponse;
 import be.nabu.libs.http.api.server.AuthenticationHeader;
 import be.nabu.libs.http.api.server.Session;
-import be.nabu.libs.http.api.server.SessionProvider;
 import be.nabu.libs.http.core.DefaultHTTPResponse;
 import be.nabu.libs.http.core.HTTPUtils;
 import be.nabu.libs.http.glue.GlueListener;
@@ -65,25 +64,15 @@ public class RESTFragmentListener implements EventHandler<HTTPRequest, HTTPRespo
 	private Logger logger = LoggerFactory.getLogger(getClass());
 	private PathAnalysis pathAnalysis;
 	private String serverPath;
-	private TokenValidator tokenValidator;
-	private RoleHandler roleHandler;
-	private PermissionHandler permissionHandler;
-	private SessionProvider sessionProvider;
-	private String realm;
 	private DefinedService service;
 	private Charset charset;
 	private boolean allowEncoding;
-	private Repository repository;
 	private RESTInterfaceArtifact webArtifact;
+	private WebApplication webApplication;
 
-	public RESTFragmentListener(Repository repository, String serverPath, String realm, SessionProvider sessionProvider, PermissionHandler permissionHandler, RoleHandler roleHandler, TokenValidator tokenValidator, RESTInterfaceArtifact webArtifact, DefinedService service, Charset charset, boolean allowEncoding) throws IOException {
-		this.repository = repository;
+	public RESTFragmentListener(WebApplication webApplication, String serverPath, RESTInterfaceArtifact webArtifact, DefinedService service, Charset charset, boolean allowEncoding) throws IOException {
+		this.webApplication = webApplication;
 		this.serverPath = serverPath;
-		this.realm = realm;
-		this.sessionProvider = sessionProvider;
-		this.permissionHandler = permissionHandler;
-		this.roleHandler = roleHandler;
-		this.tokenValidator = tokenValidator;
 		this.webArtifact = webArtifact;
 		this.service = service;
 		this.charset = charset;
@@ -120,20 +109,21 @@ public class RESTFragmentListener implements EventHandler<HTTPRequest, HTTPRespo
 			}
 			Map<String, List<String>> cookies = HTTPUtils.getCookies(request.getContent().getHeaders());
 			String originalSessionId = GlueListener.getSessionId(cookies);
-			Session session = originalSessionId == null ? null : sessionProvider.getSession(originalSessionId);
+			Session session = originalSessionId == null ? null : webApplication.getSessionProvider().getSession(originalSessionId);
 			
 			// authentication tokens in the request get precedence over session-based authentication
 			AuthenticationHeader authenticationHeader = HTTPUtils.getAuthenticationHeader(request);
 			Token token = authenticationHeader == null ? null : authenticationHeader.getToken();
 			// but likely we'll have to check the session for tokens
 			if (token == null && session != null) {
-				token = (Token) session.get(GlueListener.buildTokenName(realm));
+				token = (Token) session.get(GlueListener.buildTokenName(webApplication.getRealm()));
 			}
 			else if (token != null && session != null) {
-				session.set(GlueListener.buildTokenName(realm), token);
+				session.set(GlueListener.buildTokenName(webApplication.getRealm()), token);
 			}
 			
 			// check validity of token
+			TokenValidator tokenValidator = webApplication.getTokenValidator();
 			if (tokenValidator != null) {
 				if (token != null && !tokenValidator.isValid(token)) {
 					session.destroy();
@@ -143,6 +133,7 @@ public class RESTFragmentListener implements EventHandler<HTTPRequest, HTTPRespo
 				}
 			}
 			// check role
+			RoleHandler roleHandler = webApplication.getRoleHandler();
 			if (roleHandler != null && webArtifact.getConfiguration().getRoles() != null) {
 				boolean hasRole = false;
 				for (String role : webArtifact.getConfiguration().getRoles()) {
@@ -156,6 +147,7 @@ public class RESTFragmentListener implements EventHandler<HTTPRequest, HTTPRespo
 				}
 			}
 			// check permissions
+			PermissionHandler permissionHandler = webApplication.getPermissionHandler();
 			if (permissionHandler != null) {
 				if (!permissionHandler.hasPermission(token, path, request.getMethod().toLowerCase())) {
 					throw new HTTPException(token == null ? 401 : 403, "User '" + (token == null ? Authenticator.ANONYMOUS : token.getName()) + "' does not have permission to '" + request.getMethod().toLowerCase() + "' on '" + path + "' with service: " + service.getId());
@@ -167,8 +159,8 @@ public class RESTFragmentListener implements EventHandler<HTTPRequest, HTTPRespo
 			Map<String, List<String>> queryProperties = URIUtils.getQueryProperties(uri);
 			
 			ComplexContent input = service.getServiceInterface().getInputDefinition().newInstance();
-			if (input.getType().get("realm") != null) {
-				input.set("realm", realm);
+			if (input.getType().get("webApplicationId") != null) {
+				input.set("webApplicationId", webApplication.getId());
 			}
 			if (input.getType().get("query") != null) {
 				for (Element<?> element : TypeUtils.getAllChildren((ComplexType) input.getType().get("query").getType())) {
@@ -240,11 +232,11 @@ public class RESTFragmentListener implements EventHandler<HTTPRequest, HTTPRespo
 			}
 			
 			if (webArtifact.getConfiguration().getAsynchronous() != null && webArtifact.getConfiguration().getAsynchronous()) {
-				repository.getServiceRunner().run(service, repository.newExecutionContext(token), input);
+				webApplication.getRepository().getServiceRunner().run(service, webApplication.getRepository().newExecutionContext(token), input);
 				return HTTPUtils.newEmptyResponse(request);
 			}
 			else {
-				ServiceRuntime runtime = new ServiceRuntime(service, repository.newExecutionContext(token));
+				ServiceRuntime runtime = new ServiceRuntime(service, webApplication.getRepository().newExecutionContext(token));
 				runtime.getContext().put("session", session);
 				ComplexContent output = runtime.run(input);
 				List<Header> headers = new ArrayList<Header>();

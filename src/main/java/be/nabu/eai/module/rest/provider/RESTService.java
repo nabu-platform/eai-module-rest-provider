@@ -61,13 +61,8 @@ public class RESTService extends BaseContainerArtifact implements WebFragment, D
 		}
 		synchronized(subscriptions) {
 			RESTFragmentListener listener = new RESTFragmentListener(
-				artifact.getRepository(),
+				artifact,
 				restPath, 
-				artifact.getRealm(), 
-				artifact.getSessionProvider(), 
-				artifact.getPermissionHandler(), 
-				artifact.getRoleHandler(), 
-				artifact.getTokenValidator(), 
 				getArtifact(RESTInterfaceArtifact.class),
 				this, 
 				artifact.getConfiguration().getCharset() == null ? Charset.defaultCharset() : Charset.forName(artifact.getConfiguration().getCharset()), 
