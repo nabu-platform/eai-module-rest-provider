@@ -38,6 +38,7 @@ import be.nabu.libs.resources.URIUtils;
 import be.nabu.libs.services.ServiceRuntime;
 import be.nabu.libs.services.api.DefinedService;
 import be.nabu.libs.services.api.ServiceException;
+import be.nabu.libs.types.ComplexContentWrapperFactory;
 import be.nabu.libs.types.TypeUtils;
 import be.nabu.libs.types.api.ComplexContent;
 import be.nabu.libs.types.api.ComplexType;
@@ -95,6 +96,7 @@ public class RESTFragmentListener implements EventHandler<HTTPRequest, HTTPRespo
 		}
 	}
 	
+	@SuppressWarnings("unchecked")
 	@Override
 	public HTTPResponse handle(HTTPRequest request) {
 		try {
@@ -281,7 +283,8 @@ public class RESTFragmentListener implements EventHandler<HTTPRequest, HTTPRespo
 					return new DefaultHTTPResponse(request, 200, HTTPCodes.getMessage(200), part);
 				}
 				else {
-					output = (ComplexContent) output.get("content");
+					Object object = output.get("content");
+					output = object instanceof ComplexContent ? (ComplexContent) object : ComplexContentWrapperFactory.getInstance().getWrapper().wrap(object);
 					List<String> acceptedContentTypes = request.getContent() != null
 						? MimeUtils.getAcceptedContentTypes(request.getContent().getHeaders())
 						: new ArrayList<String>();
