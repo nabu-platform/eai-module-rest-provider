@@ -266,7 +266,7 @@ public class RESTFragmentListener implements EventHandler<HTTPRequest, HTTPRespo
 				}
 				else if (output.get("content") instanceof InputStream) {
 					// no size given, set chunked
-					if (MimeUtils.getHeader("Content-Size", headers.toArray(new Header[headers.size()])) == null) {
+					if (MimeUtils.getHeader("Content-Length", headers.toArray(new Header[headers.size()])) == null) {
 						headers.add(new MimeHeader("Transfer-Encoding", "chunked"));
 					}
 					// no type given, set default
