@@ -7,6 +7,7 @@ import java.net.URI;
 import java.nio.charset.Charset;
 import java.text.ParseException;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -22,6 +23,12 @@ import be.nabu.libs.authentication.api.PermissionHandler;
 import be.nabu.libs.authentication.api.RoleHandler;
 import be.nabu.libs.authentication.api.Token;
 import be.nabu.libs.authentication.api.TokenValidator;
+import be.nabu.libs.evaluator.EvaluationException;
+import be.nabu.libs.evaluator.PathAnalyzer;
+import be.nabu.libs.evaluator.QueryParser;
+import be.nabu.libs.evaluator.impl.VariableOperation;
+import be.nabu.libs.evaluator.types.api.TypeOperation;
+import be.nabu.libs.evaluator.types.operations.TypesOperationProvider;
 import be.nabu.libs.events.api.EventHandler;
 import be.nabu.libs.http.HTTPCodes;
 import be.nabu.libs.http.HTTPException;
@@ -72,6 +79,8 @@ public class RESTFragmentListener implements EventHandler<HTTPRequest, HTTPRespo
 	private RESTInterfaceArtifact webArtifact;
 	private WebApplication webApplication;
 	private ComplexContent configuration;
+	
+	private Map<String, TypeOperation> analyzedOperations = new HashMap<String, TypeOperation>();
 
 	public RESTFragmentListener(WebApplication webApplication, String serverPath, RESTInterfaceArtifact webArtifact, DefinedService service, Charset charset, boolean allowEncoding) throws IOException {
 		this.webApplication = webApplication;
@@ -93,6 +102,32 @@ public class RESTFragmentListener implements EventHandler<HTTPRequest, HTTPRespo
 			}
 			configurationPath += path;
 			this.configuration = webApplication.getConfigurationFor(configurationPath, (ComplexType) configurationType);
+		}
+	}
+	
+	protected TypeOperation getOperation(String query) throws ParseException {
+		if (!analyzedOperations.containsKey(query)) {
+			synchronized(analyzedOperations) {
+				if (!analyzedOperations.containsKey(query))
+					analyzedOperations.put(query, (TypeOperation) new PathAnalyzer<ComplexContent>(new TypesOperationProvider()).analyze(QueryParser.getInstance().parse(query)));
+			}
+		}
+		return analyzedOperations.get(query);
+	}
+	
+	protected Object getVariable(ComplexContent pipeline, String query) throws ServiceException {
+		VariableOperation.registerRoot();
+		try {
+			return getOperation(query).evaluate(pipeline);
+		}
+		catch (EvaluationException e) {
+			throw new ServiceException(e);
+		}
+		catch (ParseException e) {
+			throw new ServiceException(e);
+		}
+		finally {
+			VariableOperation.unregisterRoot();
 		}
 	}
 	
@@ -157,13 +192,6 @@ public class RESTFragmentListener implements EventHandler<HTTPRequest, HTTPRespo
 				}
 				if (!hasRole) {
 					throw new HTTPException(token == null ? 401 : 403, "User '" + (token == null ? Authenticator.ANONYMOUS : token.getName()) + "' does not have one of the allowed roles '" + webArtifact.getConfiguration().getRoles() + "' for service: " + service.getId());
-				}
-			}
-			// check permissions
-			PermissionHandler permissionHandler = webApplication.getPermissionHandler();
-			if (permissionHandler != null) {
-				if (!permissionHandler.hasPermission(token, path, request.getMethod().toLowerCase())) {
-					throw new HTTPException(token == null ? 401 : 403, "User '" + (token == null ? Authenticator.ANONYMOUS : token.getName()) + "' does not have permission to '" + request.getMethod().toLowerCase() + "' on '" + path + "' with service: " + service.getId());
 				}
 			}
 
@@ -241,6 +269,36 @@ public class RESTFragmentListener implements EventHandler<HTTPRequest, HTTPRespo
 							throw new HTTPException(400, "Message can not be parsed using specification: " + input.getType().get("content").getType(),e);
 						}
 					}
+				}
+			}
+			
+			// check permissions
+			PermissionHandler permissionHandler = webApplication.getPermissionHandler();
+			if (permissionHandler != null) {
+				String context = path;
+				String action = request.getMethod().toLowerCase();
+				if (webArtifact.getConfig().getPermissionContext() != null) {
+					if (webArtifact.getConfig().getPermissionContext().startsWith("=")) {
+						// we replace any "input/" references as you likely copy pasted it from the interface, it should work the same as the pipeline
+						Object result = getVariable(input, webArtifact.getConfig().getPermissionContext().substring(1).replaceAll("\\binput/", ""));
+						context = result == null ? null : result.toString();
+					}
+					else {
+						context = webArtifact.getConfig().getPermissionContext();
+					}
+				}
+				if (webArtifact.getConfig().getPermissionAction() != null) {
+					if (webArtifact.getConfig().getPermissionAction().startsWith("=")) {
+						// we replace any "input/" references as you likely copy pasted it from the interface, it should work the same as the pipeline
+						Object result = getVariable(input, webArtifact.getConfig().getPermissionAction().substring(1).replaceAll("\\binput/", ""));
+						action = result == null ? null : result.toString();
+					}
+					else {
+						action = webArtifact.getConfig().getPermissionAction();
+					}
+				}
+				if (!permissionHandler.hasPermission(token, context, action)) {
+					throw new HTTPException(token == null ? 401 : 403, "User '" + (token == null ? Authenticator.ANONYMOUS : token.getName()) + "' does not have permission to '" + request.getMethod().toLowerCase() + "' on '" + path + "' with service: " + service.getId());
 				}
 			}
 			

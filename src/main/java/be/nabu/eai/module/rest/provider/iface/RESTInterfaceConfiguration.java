@@ -13,11 +13,12 @@ import be.nabu.eai.repository.jaxb.ArtifactXMLAdapter;
 import be.nabu.libs.types.api.DefinedType;
 
 @XmlRootElement(name = "restInterface")
-@XmlType(propOrder = { "method", "path", "queryParameters", "cookieParameters", "sessionParameters", "headerParameters", "responseHeaders", "roles", "preferredResponseType", "asynchronous", "inputAsStream", "outputAsStream", "input", "output", "sanitizeInput", "acceptedLanguages", "configurationType" })
+@XmlType(propOrder = { "method", "path", "queryParameters", "cookieParameters", "sessionParameters", "headerParameters", "responseHeaders", "roles", "permissionContext", "permissionAction", "preferredResponseType", "asynchronous", "inputAsStream", "outputAsStream", "input", "output", "sanitizeInput", "acceptedLanguages", "configurationType" })
 public class RESTInterfaceConfiguration {
 
 	private DefinedType input, output;
 	private String path, queryParameters, cookieParameters, sessionParameters, headerParameters, responseHeaders;
+	private String permissionContext, permissionAction;
 	private WebMethod method;
 	private List<String> roles;
 	private Boolean asynchronous;
@@ -133,6 +134,18 @@ public class RESTInterfaceConfiguration {
 	}
 	public void setConfigurationType(DefinedType configurationType) {
 		this.configurationType = configurationType;
+	}
+	public String getPermissionContext() {
+		return permissionContext;
+	}
+	public void setPermissionContext(String permissionContext) {
+		this.permissionContext = permissionContext;
+	}
+	public String getPermissionAction() {
+		return permissionAction;
+	}
+	public void setPermissionAction(String permissionAction) {
+		this.permissionAction = permissionAction;
 	}
 	
 }
