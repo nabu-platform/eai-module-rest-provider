@@ -275,8 +275,8 @@ public class RESTFragmentListener implements EventHandler<HTTPRequest, HTTPRespo
 			// check permissions
 			PermissionHandler permissionHandler = webApplication.getPermissionHandler();
 			if (permissionHandler != null) {
-				String context = path;
-				String action = request.getMethod().toLowerCase();
+				String context = null;
+				String action = null;
 				if (webArtifact.getConfig().getPermissionContext() != null) {
 					if (webArtifact.getConfig().getPermissionContext().startsWith("=")) {
 						// we replace any "input/" references as you likely copy pasted it from the interface, it should work the same as the pipeline
@@ -297,7 +297,7 @@ public class RESTFragmentListener implements EventHandler<HTTPRequest, HTTPRespo
 						action = webArtifact.getConfig().getPermissionAction();
 					}
 				}
-				if (!permissionHandler.hasPermission(token, context, action)) {
+				if (action != null && !permissionHandler.hasPermission(token, context, action)) {
 					throw new HTTPException(token == null ? 401 : 403, "User '" + (token == null ? Authenticator.ANONYMOUS : token.getName()) + "' does not have permission to '" + request.getMethod().toLowerCase() + "' on '" + path + "' with service: " + service.getId());
 				}
 			}
