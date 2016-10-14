@@ -9,6 +9,7 @@ import org.slf4j.LoggerFactory;
 import be.nabu.eai.module.rest.RESTUtils;
 import be.nabu.eai.repository.api.Repository;
 import be.nabu.eai.repository.artifacts.jaxb.JAXBArtifact;
+import be.nabu.libs.authentication.api.Device;
 import be.nabu.libs.http.glue.GlueListener;
 import be.nabu.libs.resources.api.ResourceContainer;
 import be.nabu.libs.services.api.DefinedServiceInterface;
@@ -18,6 +19,7 @@ import be.nabu.libs.types.api.ComplexType;
 import be.nabu.libs.types.base.ComplexElementImpl;
 import be.nabu.libs.types.base.SimpleElementImpl;
 import be.nabu.libs.types.base.ValueImpl;
+import be.nabu.libs.types.java.BeanResolver;
 import be.nabu.libs.types.properties.MaxOccursProperty;
 import be.nabu.libs.types.properties.MinOccursProperty;
 import be.nabu.libs.types.structure.Structure;
@@ -122,6 +124,10 @@ public class RESTInterfaceArtifact extends JAXBArtifact<RESTInterfaceConfigurati
 			}
 			if (getConfiguration().getAcceptedLanguages() != null && getConfiguration().getAcceptedLanguages()) {
 				input.add(new SimpleElementImpl<String>("acceptedLanguages", SimpleTypeWrapperFactory.getInstance().getWrapper().wrap(String.class), input, new ValueImpl<Integer>(MaxOccursProperty.getInstance(), 0), new ValueImpl<Integer>(MinOccursProperty.getInstance(), 0)));
+			}
+			
+			if (getConfig().getDevice() != null && getConfig().getDevice()) {
+				input.add(new ComplexElementImpl("device", (ComplexType) BeanResolver.getInstance().resolve(Device.class), input));
 			}
 			
 			if (getConfiguration().getResponseHeaders() != null && !getConfiguration().getResponseHeaders().trim().isEmpty()) {

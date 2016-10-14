@@ -10,6 +10,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -23,6 +24,7 @@ import be.nabu.libs.authentication.api.PermissionHandler;
 import be.nabu.libs.authentication.api.RoleHandler;
 import be.nabu.libs.authentication.api.Token;
 import be.nabu.libs.authentication.api.TokenValidator;
+import be.nabu.libs.authentication.impl.DeviceImpl;
 import be.nabu.libs.evaluator.EvaluationException;
 import be.nabu.libs.evaluator.PathAnalyzer;
 import be.nabu.libs.evaluator.QueryParser;
@@ -40,6 +42,8 @@ import be.nabu.libs.http.core.DefaultHTTPResponse;
 import be.nabu.libs.http.core.HTTPUtils;
 import be.nabu.libs.http.glue.GlueListener;
 import be.nabu.libs.http.glue.GlueListener.PathAnalysis;
+import be.nabu.libs.http.glue.impl.GlueHTTPUtils;
+import be.nabu.libs.http.glue.impl.RequestMethods;
 import be.nabu.libs.http.glue.impl.ResponseMethods;
 import be.nabu.libs.resources.URIUtils;
 import be.nabu.libs.services.ServiceRuntime;
@@ -63,6 +67,7 @@ import be.nabu.utils.io.api.ByteBuffer;
 import be.nabu.utils.io.api.ReadableContainer;
 import be.nabu.utils.mime.api.ContentPart;
 import be.nabu.utils.mime.api.Header;
+import be.nabu.utils.mime.api.ModifiableHeader;
 import be.nabu.utils.mime.impl.FormatException;
 import be.nabu.utils.mime.impl.MimeHeader;
 import be.nabu.utils.mime.impl.MimeUtils;
@@ -233,6 +238,19 @@ public class RESTFragmentListener implements EventHandler<HTTPRequest, HTTPRespo
 					input.set("cookie/" + element.getName(), sanitize(cookies.get(element.getName()), sanitizeInput));
 				}
 			}
+			
+			String deviceId = null;
+			boolean isNewDevice = false;
+			if (input.getType().get("device") != null) {
+				List<String> deviceList = cookies.get("Device-" + webApplication.getRealm());
+				deviceId = deviceList != null && !deviceList.isEmpty() ? deviceList.get(0) : null;
+				if (deviceId == null) {
+					deviceId = UUID.randomUUID().toString().replace("-", "");
+					isNewDevice = true;
+				}
+				input.set("device", new DeviceImpl(deviceId, GlueHTTPUtils.getUserAgent(RequestMethods.headers(null)), GlueHTTPUtils.getIp(RequestMethods.headers(null))));
+			}
+			
 			if (input.getType().get("content") != null && request.getContent() instanceof ContentPart) {
 				ReadableContainer<ByteBuffer> readable = ((ContentPart) request.getContent()).getReadable();
 				// the readable can be null (e.g. empty part)
@@ -317,6 +335,12 @@ public class RESTFragmentListener implements EventHandler<HTTPRequest, HTTPRespo
 						String value = (String) header.get(element.getName());
 						headers.add(new MimeHeader(RESTUtils.fieldToHeader(element.getName()), value));
 					}
+				}
+				if (isNewDevice) {
+					ModifiableHeader cookieHeader = HTTPUtils.newSetCookieHeader("Device-" + webApplication.getRealm(), deviceId);
+					cookieHeader.addComment("Path=" + webApplication.getServerPath());
+					cookieHeader.addComment("HttpOnly");
+					headers.add(cookieHeader);
 				}
 				// if there is no content to respond with, just send back an empty response
 				if (output == null || output.get("content") == null) {
