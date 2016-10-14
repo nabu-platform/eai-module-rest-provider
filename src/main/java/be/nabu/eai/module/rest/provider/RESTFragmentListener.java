@@ -7,6 +7,7 @@ import java.net.URI;
 import java.nio.charset.Charset;
 import java.text.ParseException;
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -337,9 +338,18 @@ public class RESTFragmentListener implements EventHandler<HTTPRequest, HTTPRespo
 					}
 				}
 				if (isNewDevice) {
-					ModifiableHeader cookieHeader = HTTPUtils.newSetCookieHeader("Device-" + webApplication.getRealm(), deviceId);
-					cookieHeader.addComment("Path=" + webApplication.getServerPath());
-					cookieHeader.addComment("HttpOnly");
+					ModifiableHeader cookieHeader = HTTPUtils.newSetCookieHeader(
+						"Device-" + webApplication.getRealm(), 
+						deviceId,
+						new Date(new Date().getTime() + 1000l*60*60*24*365*100),
+						webApplication.getServerPath(),
+						// domain
+						null, 
+						// secure TODO?
+						false,
+						// http only
+						true
+					);
 					headers.add(cookieHeader);
 				}
 				// if there is no content to respond with, just send back an empty response
