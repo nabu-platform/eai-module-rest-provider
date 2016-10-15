@@ -11,7 +11,6 @@ import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.UUID;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -21,11 +20,12 @@ import be.nabu.eai.module.rest.WebResponseType;
 import be.nabu.eai.module.rest.provider.iface.RESTInterfaceArtifact;
 import be.nabu.eai.module.web.application.WebApplication;
 import be.nabu.libs.authentication.api.Authenticator;
+import be.nabu.libs.authentication.api.Device;
+import be.nabu.libs.authentication.api.DeviceValidator;
 import be.nabu.libs.authentication.api.PermissionHandler;
 import be.nabu.libs.authentication.api.RoleHandler;
 import be.nabu.libs.authentication.api.Token;
 import be.nabu.libs.authentication.api.TokenValidator;
-import be.nabu.libs.authentication.impl.DeviceImpl;
 import be.nabu.libs.evaluator.EvaluationException;
 import be.nabu.libs.evaluator.PathAnalyzer;
 import be.nabu.libs.evaluator.QueryParser;
@@ -43,8 +43,6 @@ import be.nabu.libs.http.core.DefaultHTTPResponse;
 import be.nabu.libs.http.core.HTTPUtils;
 import be.nabu.libs.http.glue.GlueListener;
 import be.nabu.libs.http.glue.GlueListener.PathAnalysis;
-import be.nabu.libs.http.glue.impl.GlueHTTPUtils;
-import be.nabu.libs.http.glue.impl.RequestMethods;
 import be.nabu.libs.http.glue.impl.ResponseMethods;
 import be.nabu.libs.resources.URIUtils;
 import be.nabu.libs.services.ServiceRuntime;
@@ -186,6 +184,22 @@ public class RESTFragmentListener implements EventHandler<HTTPRequest, HTTPRespo
 					token = null;
 				}
 			}
+			
+			DeviceValidator deviceValidator = webApplication.getDeviceValidator();
+			String deviceId = null;
+			boolean isNewDevice = false;
+			// check validity of device
+			Device device = request.getContent() == null ? null : GlueListener.getDevice(webApplication.getRealm(), request.getContent().getHeaders());
+			if (device == null && (deviceValidator != null || (webArtifact.getConfig().getDevice() != null && webArtifact.getConfig().getDevice()))) {
+				device = GlueListener.newDevice(webApplication.getRealm(), request.getContent().getHeaders());
+				deviceId = device.getDeviceId();
+				isNewDevice = true;
+			}
+			
+			if (deviceValidator != null && !deviceValidator.isAllowed(token, device)) {
+				throw new HTTPException(token == null ? 401 : 403, "User '" + (token == null ? Authenticator.ANONYMOUS : token.getName()) + "' is using an unauthorized device '" + device.getDeviceId() + "' for service: " + service.getId());
+			}
+			
 			// check role
 			RoleHandler roleHandler = webApplication.getRoleHandler();
 			if (roleHandler != null && webArtifact.getConfiguration().getRoles() != null) {
@@ -240,16 +254,8 @@ public class RESTFragmentListener implements EventHandler<HTTPRequest, HTTPRespo
 				}
 			}
 			
-			String deviceId = null;
-			boolean isNewDevice = false;
 			if (input.getType().get("device") != null) {
-				List<String> deviceList = cookies.get("Device-" + webApplication.getRealm());
-				deviceId = deviceList != null && !deviceList.isEmpty() ? deviceList.get(0) : null;
-				if (deviceId == null) {
-					deviceId = UUID.randomUUID().toString().replace("-", "");
-					isNewDevice = true;
-				}
-				input.set("device", new DeviceImpl(deviceId, GlueHTTPUtils.getUserAgent(RequestMethods.headers(null)), GlueHTTPUtils.getIp(RequestMethods.headers(null))));
+				input.set("device", device);
 			}
 			
 			if (input.getType().get("content") != null && request.getContent() instanceof ContentPart) {
@@ -342,7 +348,7 @@ public class RESTFragmentListener implements EventHandler<HTTPRequest, HTTPRespo
 						"Device-" + webApplication.getRealm(), 
 						deviceId,
 						new Date(new Date().getTime() + 1000l*60*60*24*365*100),
-						webApplication.getServerPath(),
+						webApplication.getCookiePath(),
 						// domain
 						null, 
 						// secure TODO?
