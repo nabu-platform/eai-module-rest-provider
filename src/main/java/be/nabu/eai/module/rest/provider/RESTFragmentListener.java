@@ -232,7 +232,7 @@ public class RESTFragmentListener implements EventHandler<HTTPRequest, HTTPRespo
 				for (Element<?> element : TypeUtils.getAllChildren((ComplexType) input.getType().get("header").getType())) {
 					int counter = 0;
 					for (Header header : MimeUtils.getHeaders(RESTUtils.fieldToHeader(element.getName()), request.getContent().getHeaders())) {
-						input.set("header/" + element.getName() + "[" + counter++ + "]", sanitize(header.getValue(), sanitizeInput));
+						input.set("header/" + element.getName() + "[" + counter++ + "]", sanitize(MimeUtils.getFullHeaderValue(header), sanitizeInput));
 					}
 				}
 			}
