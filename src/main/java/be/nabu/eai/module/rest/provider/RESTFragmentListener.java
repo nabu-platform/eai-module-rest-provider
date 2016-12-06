@@ -334,6 +334,8 @@ public class RESTFragmentListener implements EventHandler<HTTPRequest, HTTPRespo
 			else {
 				ServiceRuntime runtime = new ServiceRuntime(service, webApplication.getRepository().newExecutionContext(token));
 				runtime.getContext().put("session", session);
+				// we set the datastore context to the web application, rest services can be mounted in multiple applications
+				runtime.getContext().put("datastore.context", webApplication.getId());
 				ComplexContent output = runtime.run(input);
 				List<Header> headers = new ArrayList<Header>();
 				if (output != null && output.get("header") != null) {
