@@ -46,6 +46,7 @@ import be.nabu.libs.http.glue.GlueListener.PathAnalysis;
 import be.nabu.libs.http.glue.impl.ResponseMethods;
 import be.nabu.libs.resources.URIUtils;
 import be.nabu.libs.services.ServiceRuntime;
+import be.nabu.libs.services.ServiceUtils;
 import be.nabu.libs.services.api.DefinedService;
 import be.nabu.libs.services.api.ServiceException;
 import be.nabu.libs.types.ComplexContentWrapperFactory;
@@ -334,8 +335,8 @@ public class RESTFragmentListener implements EventHandler<HTTPRequest, HTTPRespo
 			else {
 				ServiceRuntime runtime = new ServiceRuntime(service, webApplication.getRepository().newExecutionContext(token));
 				runtime.getContext().put("session", session);
-				// we set the datastore context to the web application, rest services can be mounted in multiple applications
-				runtime.getContext().put("datastore.context", webApplication.getId());
+				// we set the service context to the web application, rest services can be mounted in multiple applications
+				ServiceUtils.setServiceContext(runtime, webApplication.getId());
 				ComplexContent output = runtime.run(input);
 				List<Header> headers = new ArrayList<Header>();
 				if (output != null && output.get("header") != null) {
