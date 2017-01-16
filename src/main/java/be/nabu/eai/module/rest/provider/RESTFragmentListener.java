@@ -16,7 +16,9 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import be.nabu.eai.module.rest.RESTUtils;
+import be.nabu.eai.module.rest.SPIBindingProvider;
 import be.nabu.eai.module.rest.WebResponseType;
+import be.nabu.eai.module.rest.api.BindingProvider;
 import be.nabu.eai.module.rest.provider.iface.RESTInterfaceArtifact;
 import be.nabu.eai.module.web.application.WebApplication;
 import be.nabu.libs.authentication.api.Authenticator;
@@ -84,6 +86,7 @@ public class RESTFragmentListener implements EventHandler<HTTPRequest, HTTPRespo
 	private RESTInterfaceArtifact webArtifact;
 	private WebApplication webApplication;
 	private ComplexContent configuration;
+	private BindingProvider bindingProvider;
 	
 	private Map<String, TypeOperation> analyzedOperations = new HashMap<String, TypeOperation>();
 
@@ -283,7 +286,10 @@ public class RESTFragmentListener implements EventHandler<HTTPRequest, HTTPRespo
 							binding = new FormBinding((ComplexType) input.getType().get("content").getType(), charset);
 						}
 						else {
-							throw new HTTPException(400, "Unsupported request content type: " + contentType);	
+							binding = getBindingProvider().getUnmarshallableBinding((ComplexType) input.getType().get("content").getType(), charset, request.getContent().getHeaders());
+							if (binding == null) {
+								throw new HTTPException(400, "Unsupported request content type: " + contentType);
+							}
 						}
 						try {
 							input.set("content", sanitize(binding.unmarshal(IOUtils.toInputStream(readable), new Window[0]), sanitizeInput));
@@ -386,23 +392,32 @@ public class RESTFragmentListener implements EventHandler<HTTPRequest, HTTPRespo
 				else {
 					Object object = output.get("content");
 					output = object instanceof ComplexContent ? (ComplexContent) object : ComplexContentWrapperFactory.getInstance().getWrapper().wrap(object);
-					List<String> acceptedContentTypes = request.getContent() != null
-						? MimeUtils.getAcceptedContentTypes(request.getContent().getHeaders())
-						: new ArrayList<String>();
-					acceptedContentTypes.retainAll(ResponseMethods.allowedTypes);
-					String contentType = acceptedContentTypes.isEmpty() ? webArtifact.getConfiguration().getPreferredResponseType().getMimeType() : acceptedContentTypes.get(0);
-					MarshallableBinding binding;
-					if (contentType.equalsIgnoreCase(WebResponseType.XML.getMimeType())) {
-						binding = new XMLBinding(output.getType(), charset);
-					}
-					else if (contentType.equalsIgnoreCase(WebResponseType.JSON.getMimeType())) {
-						binding = new JSONBinding(output.getType(), charset);
-					}
-					else if (contentType.equalsIgnoreCase(WebResponseType.FORM_ENCODED.getMimeType())) {
-						binding = new FormBinding(output.getType(), charset);
+					MarshallableBinding binding = request.getContent() == null ? null : getBindingProvider().getMarshallableBinding(output.getType(), charset, request.getContent().getHeaders());
+					String contentType;
+					if (binding != null) {
+						contentType = getBindingProvider().getContentType(binding);
 					}
 					else {
-						throw new HTTPException(500, "Unsupported response content type: " + contentType);
+						List<String> acceptedContentTypes = request.getContent() != null
+							? MimeUtils.getAcceptedContentTypes(request.getContent().getHeaders())
+							: new ArrayList<String>();
+						acceptedContentTypes.retainAll(ResponseMethods.allowedTypes);
+						contentType = acceptedContentTypes.isEmpty() ? webArtifact.getConfiguration().getPreferredResponseType().getMimeType() : acceptedContentTypes.get(0);
+						if (contentType.equalsIgnoreCase(WebResponseType.XML.getMimeType())) {
+							binding = new XMLBinding(output.getType(), charset);
+						}
+						else if (contentType.equalsIgnoreCase(WebResponseType.JSON.getMimeType())) {
+							binding = new JSONBinding(output.getType(), charset);
+						}
+						else if (contentType.equalsIgnoreCase(WebResponseType.FORM_ENCODED.getMimeType())) {
+							binding = new FormBinding(output.getType(), charset);
+						}
+						else {
+							throw new HTTPException(500, "Unsupported response content type: " + contentType);
+						}
+					}
+					if (contentType == null) {
+						contentType = "application/octet-stream";
 					}
 					ByteArrayOutputStream content = new ByteArrayOutputStream();
 					binding.marshal(content, (ComplexContent) output);
@@ -442,4 +457,16 @@ public class RESTFragmentListener implements EventHandler<HTTPRequest, HTTPRespo
 	private static Object sanitize(Object value, boolean sanitize) {
 		return sanitize ? GlueListener.sanitize(value) : value;
 	}
+
+	public BindingProvider getBindingProvider() {
+		if (bindingProvider == null) {
+			bindingProvider = SPIBindingProvider.getInstance();
+		}
+		return bindingProvider;
+	}
+
+	public void setBindingProvider(BindingProvider bindingProvider) {
+		this.bindingProvider = bindingProvider;
+	}
+	
 }
