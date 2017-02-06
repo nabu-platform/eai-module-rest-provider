@@ -143,6 +143,7 @@ public class RESTFragmentListener implements EventHandler<HTTPRequest, HTTPRespo
 	@Override
 	public HTTPResponse handle(HTTPRequest request) {
 		try {
+			ServiceRuntime.setGlobalContext(new HashMap<String, Object>());
 			// stop fast if wrong method
 			if (webArtifact.getConfiguration().getMethod() != null && !webArtifact.getConfiguration().getMethod().toString().equalsIgnoreCase(request.getMethod())) {
 				return null;
@@ -451,6 +452,9 @@ public class RESTFragmentListener implements EventHandler<HTTPRequest, HTTPRespo
 			else {
 				throw new HTTPException(500, e);
 			}
+		}
+		finally {
+			ServiceRuntime.setGlobalContext(null);
 		}
 	}
 
