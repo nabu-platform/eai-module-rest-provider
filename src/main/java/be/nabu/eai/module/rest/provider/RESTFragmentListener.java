@@ -403,7 +403,11 @@ public class RESTFragmentListener implements EventHandler<HTTPRequest, HTTPRespo
 							? MimeUtils.getAcceptedContentTypes(request.getContent().getHeaders())
 							: new ArrayList<String>();
 						acceptedContentTypes.retainAll(ResponseMethods.allowedTypes);
-						contentType = acceptedContentTypes.isEmpty() ? webArtifact.getConfiguration().getPreferredResponseType().getMimeType() : acceptedContentTypes.get(0);
+						WebResponseType preferredResponseType = webArtifact.getConfiguration().getPreferredResponseType();
+						if (preferredResponseType == null) {
+							preferredResponseType = WebResponseType.JSON;
+						}
+						contentType = acceptedContentTypes.isEmpty() ? preferredResponseType.getMimeType() : acceptedContentTypes.get(0);
 						if (contentType.equalsIgnoreCase(WebResponseType.XML.getMimeType())) {
 							binding = new XMLBinding(output.getType(), charset);
 						}
