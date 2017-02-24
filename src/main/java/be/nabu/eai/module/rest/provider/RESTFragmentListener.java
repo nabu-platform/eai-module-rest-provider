@@ -15,12 +15,14 @@ import java.util.Map;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import be.nabu.eai.module.http.virtual.api.SourceImpl;
 import be.nabu.eai.module.rest.RESTUtils;
 import be.nabu.eai.module.rest.SPIBindingProvider;
 import be.nabu.eai.module.rest.WebResponseType;
 import be.nabu.eai.module.rest.api.BindingProvider;
 import be.nabu.eai.module.rest.provider.iface.RESTInterfaceArtifact;
 import be.nabu.eai.module.web.application.WebApplication;
+import be.nabu.eai.module.web.application.rate.RateLimiter;
 import be.nabu.libs.authentication.api.Authenticator;
 import be.nabu.libs.authentication.api.Device;
 import be.nabu.libs.authentication.api.DeviceValidator;
@@ -46,6 +48,7 @@ import be.nabu.libs.http.core.HTTPUtils;
 import be.nabu.libs.http.glue.GlueListener;
 import be.nabu.libs.http.glue.GlueListener.PathAnalysis;
 import be.nabu.libs.http.glue.impl.ResponseMethods;
+import be.nabu.libs.nio.PipelineUtils;
 import be.nabu.libs.resources.URIUtils;
 import be.nabu.libs.services.ServiceRuntime;
 import be.nabu.libs.services.ServiceUtils;
@@ -217,6 +220,15 @@ public class RESTFragmentListener implements EventHandler<HTTPRequest, HTTPRespo
 				}
 				if (!hasRole) {
 					throw new HTTPException(token == null ? 401 : 403, "User '" + (token == null ? Authenticator.ANONYMOUS : token.getName()) + "' does not have one of the allowed roles '" + webArtifact.getConfiguration().getRoles() + "' for service: " + service.getId());
+				}
+			}
+			
+			// check rate limiting (if any)
+			RateLimiter rateLimiter = webApplication.getRateLimiter();
+			if (rateLimiter != null) {
+				HTTPResponse response = rateLimiter.handle(webApplication, request, new SourceImpl(PipelineUtils.getPipeline().getSourceContext()), token, device, service.getId(), null);
+				if (response != null) {
+					return response;
 				}
 			}
 

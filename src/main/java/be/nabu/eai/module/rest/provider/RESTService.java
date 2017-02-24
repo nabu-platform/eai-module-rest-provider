@@ -39,6 +39,38 @@ import be.nabu.libs.types.api.DefinedType;
 
 public class RESTService extends BaseContainerArtifact implements WebFragment, DefinedService, ServiceAuthorizerProvider {
 
+	public static class PermissionImplementation implements Permission {
+		
+		private String context;
+		private String action;
+
+		public PermissionImplementation() {
+			// auto
+		}
+		
+		public PermissionImplementation(String context, String action) {
+			this.context = context;
+			this.action = action;
+		}
+		
+		@Override
+		public String getContext() {
+			return context;
+		}
+
+		public void setContext(String context) {
+			this.context = context;
+		}
+
+		@Override
+		public String getAction() {
+			return action;
+		}
+		public void setAction(String action) {
+			this.action = action;
+		}
+	}
+
 	private Map<String, EventSubscription<?, ?>> subscriptions = new HashMap<String, EventSubscription<?, ?>>();
 	
 	public RESTService(String id) {
@@ -90,6 +122,7 @@ public class RESTService extends BaseContainerArtifact implements WebFragment, D
 		}
 	}
 	
+	@SuppressWarnings("unused")
 	private String getPath(String parent) throws IOException {
 		RESTInterfaceArtifact artifact = getArtifact(RESTInterfaceArtifact.class);
 		if (artifact.getConfiguration().getPath() == null || artifact.getConfiguration().getPath().isEmpty() || artifact.getConfiguration().getPath().trim().equals("/")) {
@@ -109,26 +142,9 @@ public class RESTService extends BaseContainerArtifact implements WebFragment, D
 	public List<Permission> getPermissions(WebApplication webArtifact, String path) {
 		List<Permission> permissions = new ArrayList<Permission>();
 		RESTInterfaceArtifact artifact = getArtifact(RESTInterfaceArtifact.class);
-		permissions.add(new Permission() {
-			@Override
-			public String getContext() {
-				try {
-					return getPath(path);
-				}
-				catch (Exception e) {
-					throw new RuntimeException(e);
-				}
-			}
-			@Override
-			public String getAction() {
-				try {
-					return artifact.getConfiguration().getMethod() == null ? null : artifact.getConfiguration().getMethod().toString();
-				}
-				catch (Exception e) {
-					throw new RuntimeException(e);
-				}
-			}
-		});
+		if (artifact.getConfig().getPermissionAction() != null) {
+			permissions.add(new PermissionImplementation(artifact.getConfig().getPermissionContext(), artifact.getConfig().getPermissionAction()));
+		}
 		return permissions;
 	}
 
