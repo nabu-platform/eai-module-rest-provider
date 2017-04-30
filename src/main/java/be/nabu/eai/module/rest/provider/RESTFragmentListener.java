@@ -354,6 +354,7 @@ public class RESTFragmentListener implements EventHandler<HTTPRequest, HTTPRespo
 			else {
 				ServiceRuntime runtime = new ServiceRuntime(service, webApplication.getRepository().newExecutionContext(token));
 				runtime.getContext().put("session", session);
+				runtime.getContext().put("device", device);
 				// we set the service context to the web application, rest services can be mounted in multiple applications
 				ServiceUtils.setServiceContext(runtime, webApplication.getId());
 				ComplexContent output = runtime.run(input);
