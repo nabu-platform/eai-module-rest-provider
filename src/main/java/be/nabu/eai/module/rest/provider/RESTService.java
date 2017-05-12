@@ -30,6 +30,7 @@ import be.nabu.libs.services.api.ServiceAuthorizer;
 import be.nabu.libs.services.api.ServiceAuthorizerProvider;
 import be.nabu.libs.services.api.ServiceException;
 import be.nabu.libs.services.api.ServiceInstance;
+import be.nabu.libs.services.api.ServiceInstanceWithPipeline;
 import be.nabu.libs.services.api.ServiceInterface;
 import be.nabu.libs.services.vm.SimpleVMServiceDefinition;
 import be.nabu.libs.services.vm.VMServiceInstance;
@@ -163,7 +164,7 @@ public class RESTService extends BaseContainerArtifact implements WebFragment, D
 	public ServiceInstance newInstance() {
 		SimpleVMServiceDefinition artifact = getArtifact(SimpleVMServiceDefinition.class);
 		final VMServiceInstance newInstance = artifact.newInstance();
-		return new ServiceInstance() {
+		return new ServiceInstanceWithPipeline() {
 			@Override
 			public Service getDefinition() {
 				return RESTService.this;
@@ -171,6 +172,10 @@ public class RESTService extends BaseContainerArtifact implements WebFragment, D
 			@Override
 			public ComplexContent execute(ExecutionContext executionContext, ComplexContent input) throws ServiceException {
 				return newInstance.execute(executionContext, input);
+			}
+			@Override
+			public ComplexContent getPipeline() {
+				return newInstance.getPipeline();
 			}
 		};
 	}
