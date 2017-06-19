@@ -41,6 +41,8 @@ public class RESTServiceGUIManager extends ContainerArtifactGUIManager<RESTServi
 		service.setId("$self:implementation");
 		Map<String, String> configuration = new HashMap<String, String>();
 		configuration.put(VMServiceGUIManager.INTERFACE_EDITABLE, "false");
+		// add the id of the rest service
+		configuration.put(VMServiceGUIManager.ACTUAL_ID, entry.getId());
 		restvmService.addArtifact("implementation", service, configuration);
 //		VMAuthorizationService authorization = new VMAuthorizationService(service);
 //		authorization.setId(entry.getId() + ":security");

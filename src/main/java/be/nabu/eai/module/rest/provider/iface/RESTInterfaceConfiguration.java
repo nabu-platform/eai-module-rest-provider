@@ -13,7 +13,7 @@ import be.nabu.eai.repository.jaxb.ArtifactXMLAdapter;
 import be.nabu.libs.types.api.DefinedType;
 
 @XmlRootElement(name = "restInterface")
-@XmlType(propOrder = { "method", "path", "queryParameters", "cookieParameters", "sessionParameters", "headerParameters", "responseHeaders", "roles", "permissionContext", "permissionAction", "preferredResponseType", "asynchronous", "inputAsStream", "outputAsStream", "input", "output", "sanitizeInput", "acceptedLanguages", "configurationType", "device" })
+@XmlType(propOrder = { "method", "path", "queryParameters", "cookieParameters", "sessionParameters", "headerParameters", "responseHeaders", "roles", "permissionContext", "permissionAction", "preferredResponseType", "asynchronous", "inputAsStream", "outputAsStream", "input", "output", "sanitizeInput", "acceptedLanguages", "configurationType", "device", "lenient" })
 public class RESTInterfaceConfiguration {
 
 	private DefinedType input, output;
@@ -27,6 +27,7 @@ public class RESTInterfaceConfiguration {
 	private Boolean sanitizeInput;
 	private Boolean acceptedLanguages;
 	private Boolean device;
+	private boolean lenient;
 	
 	private DefinedType configurationType;
 
@@ -153,6 +154,13 @@ public class RESTInterfaceConfiguration {
 	}
 	public void setDevice(Boolean device) {
 		this.device = device;
+	}
+
+	public boolean getLenient() {
+		return lenient;
+	}
+	public void setLenient(boolean lenient) {
+		this.lenient = lenient;
 	}
 	
 }

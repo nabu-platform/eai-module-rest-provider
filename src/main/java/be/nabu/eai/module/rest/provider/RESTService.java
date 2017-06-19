@@ -17,6 +17,7 @@ import be.nabu.eai.module.web.application.WebFragment;
 import be.nabu.eai.module.web.application.WebFragmentConfiguration;
 import be.nabu.eai.repository.EAIResourceRepository;
 import be.nabu.eai.repository.artifacts.container.BaseContainerArtifact;
+import be.nabu.libs.artifacts.api.Artifact;
 import be.nabu.libs.authentication.api.Permission;
 import be.nabu.libs.events.api.EventSubscription;
 import be.nabu.libs.http.api.HTTPRequest;
@@ -34,6 +35,7 @@ import be.nabu.libs.services.api.ServiceInstanceWithPipeline;
 import be.nabu.libs.services.api.ServiceInterface;
 import be.nabu.libs.services.vm.SimpleVMServiceDefinition;
 import be.nabu.libs.services.vm.VMServiceInstance;
+import be.nabu.libs.services.vm.api.VMService;
 import be.nabu.libs.types.api.ComplexContent;
 import be.nabu.libs.types.api.ComplexType;
 import be.nabu.libs.types.api.DefinedType;
@@ -221,6 +223,15 @@ public class RESTService extends BaseContainerArtifact implements WebFragment, D
 			catch (IOException e) {
 				throw new RuntimeException(e);
 			}
+		}
+		return configuration;
+	}
+
+	@Override
+	public Map<String, String> getConfiguration(Artifact child) {
+		Map<String, String> configuration = super.getConfiguration(child);
+		if (child instanceof VMService) {
+			configuration.put("actualId", getId());
 		}
 		return configuration;
 	}

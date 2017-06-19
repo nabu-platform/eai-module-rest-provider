@@ -291,9 +291,15 @@ public class RESTFragmentListener implements EventHandler<HTTPRequest, HTTPRespo
 						}
 						else if (contentType.equalsIgnoreCase("application/xml") || contentType.equalsIgnoreCase("text/xml")) {
 							binding = new XMLBinding((ComplexType) input.getType().get("content").getType(), charset);
+							if (webArtifact.getConfig().getLenient()) {
+								((XMLBinding) binding).setIgnoreUndefined(true);
+							}
 						}
 						else if (contentType.equalsIgnoreCase("application/json") || contentType.equalsIgnoreCase("application/javascript")) {
 							binding = new JSONBinding((ComplexType) input.getType().get("content").getType(), charset);
+							if (webArtifact.getConfig().getLenient()) {
+								((JSONBinding) binding).setIgnoreUnknownElements(true);
+							}
 						}
 						else if (contentType.equalsIgnoreCase(WebResponseType.FORM_ENCODED.getMimeType())) {
 							binding = new FormBinding((ComplexType) input.getType().get("content").getType(), charset);
