@@ -186,12 +186,16 @@ public class RESTFragmentListener implements EventHandler<HTTPRequest, HTTPRespo
 			TokenValidator tokenValidator = webApplication.getTokenValidator();
 			if (tokenValidator != null) {
 				if (token != null && !tokenValidator.isValid(token)) {
-					session.destroy();
+					if (session != null) {
+						session.destroy();
+						session = null;
+					}
 					originalSessionId = null;
-					session = null;
 					token = null;
 				}
 			}
+
+			ServiceRuntime.getGlobalContext().put("session", session);
 			
 			DeviceValidator deviceValidator = webApplication.getDeviceValidator();
 			String deviceId = null;
@@ -207,6 +211,8 @@ public class RESTFragmentListener implements EventHandler<HTTPRequest, HTTPRespo
 			if (deviceValidator != null && !deviceValidator.isAllowed(token, device)) {
 				throw new HTTPException(token == null ? 401 : 403, "User '" + (token == null ? Authenticator.ANONYMOUS : token.getName()) + "' is using an unauthorized device '" + device.getDeviceId() + "' for service: " + service.getId());
 			}
+
+			ServiceRuntime.getGlobalContext().put("device", device);
 			
 			// check role
 			RoleHandler roleHandler = webApplication.getRoleHandler();
@@ -359,8 +365,6 @@ public class RESTFragmentListener implements EventHandler<HTTPRequest, HTTPRespo
 			}
 			else {
 				ServiceRuntime runtime = new ServiceRuntime(service, webApplication.getRepository().newExecutionContext(token));
-				runtime.getContext().put("session", session);
-				runtime.getContext().put("device", device);
 				// we set the service context to the web application, rest services can be mounted in multiple applications
 				ServiceUtils.setServiceContext(runtime, webApplication.getId());
 				ComplexContent output = runtime.run(input);
