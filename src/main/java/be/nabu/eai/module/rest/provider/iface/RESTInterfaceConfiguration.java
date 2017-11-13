@@ -7,13 +7,16 @@ import javax.xml.bind.annotation.XmlRootElement;
 import javax.xml.bind.annotation.XmlType;
 import javax.xml.bind.annotation.adapters.XmlJavaTypeAdapter;
 
+import be.nabu.eai.api.Advanced;
+import be.nabu.eai.api.Comment;
+import be.nabu.eai.api.NamingConvention;
 import be.nabu.eai.module.rest.WebMethod;
 import be.nabu.eai.module.rest.WebResponseType;
 import be.nabu.eai.repository.jaxb.ArtifactXMLAdapter;
 import be.nabu.libs.types.api.DefinedType;
 
 @XmlRootElement(name = "restInterface")
-@XmlType(propOrder = { "method", "path", "queryParameters", "cookieParameters", "sessionParameters", "headerParameters", "responseHeaders", "roles", "permissionContext", "permissionAction", "preferredResponseType", "asynchronous", "inputAsStream", "outputAsStream", "input", "output", "sanitizeInput", "acceptedLanguages", "configurationType", "device", "lenient" })
+@XmlType(propOrder = { "method", "path", "queryParameters", "cookieParameters", "sessionParameters", "headerParameters", "responseHeaders", "roles", "permissionContext", "permissionAction", "preferredResponseType", "asynchronous", "inputAsStream", "outputAsStream", "input", "output", "sanitizeInput", "acceptedLanguages", "configurationType", "device", "lenient", "namingConvention", "webApplicationId", "language", "allowFormBinding" })
 public class RESTInterfaceConfiguration {
 
 	private DefinedType input, output;
@@ -27,7 +30,11 @@ public class RESTInterfaceConfiguration {
 	private Boolean sanitizeInput;
 	private Boolean acceptedLanguages;
 	private Boolean device;
+	private boolean language;
 	private boolean lenient;
+	private boolean webApplicationId;
+	private NamingConvention namingConvention;
+	private boolean allowFormBinding;
 	
 	private DefinedType configurationType;
 
@@ -124,6 +131,8 @@ public class RESTInterfaceConfiguration {
 	public void setSanitizeInput(Boolean sanitizeInput) {
 		this.sanitizeInput = sanitizeInput;
 	}
+	// will be removed at the end of 2018
+	@Deprecated
 	public Boolean getAcceptedLanguages() {
 		return acceptedLanguages;
 	}
@@ -161,6 +170,40 @@ public class RESTInterfaceConfiguration {
 	}
 	public void setLenient(boolean lenient) {
 		this.lenient = lenient;
+	}
+	
+	@Advanced
+	@Comment(title = "Setting this parameter will make sure the correct naming convention is exposed to the outside world")
+	public NamingConvention getNamingConvention() {
+		return namingConvention;
+	}
+	public void setNamingConvention(NamingConvention namingConvention) {
+		this.namingConvention = namingConvention;
+	}
+	
+	@Advanced
+	@Comment(title = "If set to true, the web application id will be injected into the rest service")
+	public boolean isWebApplicationId() {
+		return webApplicationId;
+	}
+	public void setWebApplicationId(boolean webApplicationId) {
+		this.webApplicationId = webApplicationId;
+	}
+	
+	public boolean isLanguage() {
+		return language;
+	}
+	public void setLanguage(boolean language) {
+		this.language = language;
+	}
+	
+	@Advanced
+	@Comment(title = "Whether or not form binding is allowed")
+	public boolean isAllowFormBinding() {
+		return allowFormBinding;
+	}
+	public void setAllowFormBinding(boolean allowFormBinding) {
+		this.allowFormBinding = allowFormBinding;
 	}
 	
 }

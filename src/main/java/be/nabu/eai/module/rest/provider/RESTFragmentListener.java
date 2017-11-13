@@ -7,6 +7,7 @@ import java.net.URI;
 import java.nio.charset.Charset;
 import java.text.ParseException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
@@ -22,6 +23,7 @@ import be.nabu.eai.module.rest.WebResponseType;
 import be.nabu.eai.module.rest.api.BindingProvider;
 import be.nabu.eai.module.rest.provider.iface.RESTInterfaceArtifact;
 import be.nabu.eai.module.web.application.WebApplication;
+import be.nabu.eai.module.web.application.WebApplicationUtils;
 import be.nabu.eai.module.web.application.rate.RateLimiter;
 import be.nabu.libs.authentication.api.Authenticator;
 import be.nabu.libs.authentication.api.Device;
@@ -49,6 +51,7 @@ import be.nabu.libs.http.glue.GlueListener;
 import be.nabu.libs.http.glue.GlueListener.PathAnalysis;
 import be.nabu.libs.http.glue.impl.ResponseMethods;
 import be.nabu.libs.nio.PipelineUtils;
+import be.nabu.libs.property.api.Value;
 import be.nabu.libs.resources.URIUtils;
 import be.nabu.libs.services.ServiceRuntime;
 import be.nabu.libs.services.ServiceUtils;
@@ -61,12 +64,14 @@ import be.nabu.libs.types.api.ComplexType;
 import be.nabu.libs.types.api.DefinedType;
 import be.nabu.libs.types.api.Element;
 import be.nabu.libs.types.api.SimpleType;
+import be.nabu.libs.types.base.CollectionFormat;
 import be.nabu.libs.types.binding.api.MarshallableBinding;
 import be.nabu.libs.types.binding.api.UnmarshallableBinding;
 import be.nabu.libs.types.binding.api.Window;
 import be.nabu.libs.types.binding.form.FormBinding;
 import be.nabu.libs.types.binding.json.JSONBinding;
 import be.nabu.libs.types.binding.xml.XMLBinding;
+import be.nabu.libs.types.properties.CollectionFormatProperty;
 import be.nabu.utils.io.IOUtils;
 import be.nabu.utils.io.api.ByteBuffer;
 import be.nabu.utils.io.api.ReadableContainer;
@@ -174,7 +179,14 @@ public class RESTFragmentListener implements EventHandler<HTTPRequest, HTTPRespo
 			// authentication tokens in the request get precedence over session-based authentication
 			AuthenticationHeader authenticationHeader = HTTPUtils.getAuthenticationHeader(request);
 			Token token = authenticationHeader == null ? null : authenticationHeader.getToken();
-			// but likely we'll have to check the session for tokens
+			
+			Device device = null;
+			boolean isNewDevice = false;
+			String deviceId = null;
+			
+			// system principals don't follow standard security procedure
+			// they can only be set from within the system itself
+		// but likely we'll have to check the session for tokens
 			if (token == null && session != null) {
 				token = (Token) session.get(GlueListener.buildTokenName(webApplication.getRealm()));
 			}
@@ -198,10 +210,8 @@ public class RESTFragmentListener implements EventHandler<HTTPRequest, HTTPRespo
 			ServiceRuntime.getGlobalContext().put("session", session);
 			
 			DeviceValidator deviceValidator = webApplication.getDeviceValidator();
-			String deviceId = null;
-			boolean isNewDevice = false;
 			// check validity of device
-			Device device = request.getContent() == null ? null : GlueListener.getDevice(webApplication.getRealm(), request.getContent().getHeaders());
+			device = request.getContent() == null ? null : GlueListener.getDevice(webApplication.getRealm(), request.getContent().getHeaders());
 			if (device == null && (deviceValidator != null || (webArtifact.getConfig().getDevice() != null && webArtifact.getConfig().getDevice()))) {
 				device = GlueListener.newDevice(webApplication.getRealm(), request.getContent().getHeaders());
 				deviceId = device.getDeviceId();
@@ -243,19 +253,35 @@ public class RESTFragmentListener implements EventHandler<HTTPRequest, HTTPRespo
 			Map<String, List<String>> queryProperties = URIUtils.getQueryProperties(uri);
 			
 			ComplexContent input = service.getServiceInterface().getInputDefinition().newInstance();
+			if (input.getType().get("webApplicationId") != null) {
+				input.set("webApplicationId", webApplication.getId());
+			}
 			if (input.getType().get("configuration") != null) {
 				input.set("configuration", configuration);
 			}
 			if (input.getType().get("query") != null) {
 				for (Element<?> element : TypeUtils.getAllChildren((ComplexType) input.getType().get("query").getType())) {
-					input.set("query/" + element.getName(), sanitize(queryProperties.get(element.getName()), sanitizeInput));
+					String name = element.getName();
+					if (webArtifact.getConfig().getNamingConvention() != null) {
+						name = webArtifact.getConfig().getNamingConvention().apply(name);
+					}
+					input.set("query/" + element.getName(), sanitize(decollect(queryProperties.get(name), element), sanitizeInput));
 				}
 			}
 			if (input.getType().get("header") != null && request.getContent() != null) {
 				for (Element<?> element : TypeUtils.getAllChildren((ComplexType) input.getType().get("header").getType())) {
-					int counter = 0;
-					for (Header header : MimeUtils.getHeaders(RESTUtils.fieldToHeader(element.getName()), request.getContent().getHeaders())) {
-						input.set("header/" + element.getName() + "[" + counter++ + "]", sanitize(MimeUtils.getFullHeaderValue(header), sanitizeInput));
+					Header[] headers = MimeUtils.getHeaders(RESTUtils.fieldToHeader(element.getName()), request.getContent().getHeaders());
+					if (headers != null && headers.length > 0) {
+						if (element.getType().isList(element.getProperties())) {
+							List<String> values = new ArrayList<String>();
+							for (Header header : headers) {
+								values.add(MimeUtils.getFullHeaderValue(header));
+							}
+							input.set("header/" + element.getName(), sanitize(decollect(values, element), sanitizeInput));
+						}
+						else {
+							input.set("header/" + element.getName(), sanitize(MimeUtils.getFullHeaderValue(headers[0]), sanitizeInput));
+						}
 					}
 				}
 			}
@@ -266,6 +292,10 @@ public class RESTFragmentListener implements EventHandler<HTTPRequest, HTTPRespo
 			}
 			if (input.getType().get("acceptedLanguages") != null && request.getContent() != null) {
 				input.set("acceptedLanguages", MimeUtils.getAcceptedLanguages(request.getContent().getHeaders()));
+			}
+			
+			if (input.getType().get("language") != null) {
+				input.set("language", WebApplicationUtils.getLanguage(webApplication, request));
 			}
 
 			for (String key : analyzed.keySet()) {
@@ -307,8 +337,15 @@ public class RESTFragmentListener implements EventHandler<HTTPRequest, HTTPRespo
 								((JSONBinding) binding).setIgnoreUnknownElements(true);
 							}
 						}
+						// we make an exception for form binding
+						// we usually do not need it (unless supporting ancient html stuff) but it _can_ pose a CSRF security risk if exposed by default
 						else if (contentType.equalsIgnoreCase(WebResponseType.FORM_ENCODED.getMimeType())) {
-							binding = new FormBinding((ComplexType) input.getType().get("content").getType(), charset);
+							if (webArtifact.getConfig().isAllowFormBinding()) {
+								binding = new FormBinding((ComplexType) input.getType().get("content").getType(), charset);
+							}
+							else {
+								throw new HTTPException(400, "Form binding not allowed for this rest service");
+							}
 						}
 						else {
 							binding = getBindingProvider().getUnmarshallableBinding((ComplexType) input.getType().get("content").getType(), charset, request.getContent().getHeaders());
@@ -483,6 +520,18 @@ public class RESTFragmentListener implements EventHandler<HTTPRequest, HTTPRespo
 		finally {
 			ServiceRuntime.setGlobalContext(null);
 		}
+	}
+
+	private List<String> decollect(List<String> list, Element<?> element) {
+		Value<CollectionFormat> property = element.getProperty(CollectionFormatProperty.getInstance());
+		if (property == null || property.getValue() == CollectionFormat.MULTI) {
+			return list;
+		}
+		List<String> result = new ArrayList<String>();
+		for (String part : list) {
+			result.addAll(Arrays.asList(part.split("\\Q" + property.getValue().getCharacter() + "\\E")));
+		}
+		return result;
 	}
 
 	private static Object sanitize(Object value, boolean sanitize) {
