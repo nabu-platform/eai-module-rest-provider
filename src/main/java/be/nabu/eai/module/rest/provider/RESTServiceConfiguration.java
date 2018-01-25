@@ -73,6 +73,7 @@ public class RESTServiceConfiguration {
 	public void setOutput(DefinedType output) {
 		this.output = output;
 	}
+	@Deprecated
 	public Boolean getAsynchronous() {
 		return asynchronous;
 	}

@@ -501,10 +501,10 @@ public class RESTFragmentListener implements EventHandler<HTTPRequest, HTTPRespo
 			}
 		}
 		catch (FormatException e) {
-			throw new HTTPException(500, e);
+			throw new HTTPException(500, "Error while executing: " + service.getId(), e);
 		}
 		catch (IOException e) {
-			throw new HTTPException(500, e);
+			throw new HTTPException(500, "Error while executing: " + service.getId(), e);
 		}
 		catch (ServiceException e) {
 			if (ServiceRuntime.NO_AUTHORIZATION.equals(e.getCode())) {
@@ -514,7 +514,7 @@ public class RESTFragmentListener implements EventHandler<HTTPRequest, HTTPRespo
 				throw new HTTPException(401, e);
 			}
 			else {
-				throw new HTTPException(500, e);
+				throw new HTTPException(500, "Error while executing: " + service.getId(), e);
 			}
 		}
 		finally {
