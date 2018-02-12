@@ -25,6 +25,7 @@ import be.nabu.eai.module.rest.provider.iface.RESTInterfaceArtifact;
 import be.nabu.eai.module.web.application.WebApplication;
 import be.nabu.eai.module.web.application.WebApplicationUtils;
 import be.nabu.eai.module.web.application.rate.RateLimiter;
+import be.nabu.eai.repository.Notification;
 import be.nabu.libs.authentication.api.Authenticator;
 import be.nabu.libs.authentication.api.Device;
 import be.nabu.libs.authentication.api.DeviceValidator;
@@ -46,6 +47,7 @@ import be.nabu.libs.http.api.HTTPResponse;
 import be.nabu.libs.http.api.server.AuthenticationHeader;
 import be.nabu.libs.http.api.server.Session;
 import be.nabu.libs.http.core.DefaultHTTPResponse;
+import be.nabu.libs.http.core.HTTPFormatter;
 import be.nabu.libs.http.core.HTTPUtils;
 import be.nabu.libs.http.glue.GlueListener;
 import be.nabu.libs.http.glue.GlueListener.PathAnalysis;
@@ -65,6 +67,7 @@ import be.nabu.libs.types.api.DefinedType;
 import be.nabu.libs.types.api.Element;
 import be.nabu.libs.types.api.SimpleType;
 import be.nabu.libs.types.base.CollectionFormat;
+import be.nabu.libs.types.base.TypeBaseUtils;
 import be.nabu.libs.types.binding.api.MarshallableBinding;
 import be.nabu.libs.types.binding.api.UnmarshallableBinding;
 import be.nabu.libs.types.binding.api.Window;
@@ -72,6 +75,7 @@ import be.nabu.libs.types.binding.form.FormBinding;
 import be.nabu.libs.types.binding.json.JSONBinding;
 import be.nabu.libs.types.binding.xml.XMLBinding;
 import be.nabu.libs.types.properties.CollectionFormatProperty;
+import be.nabu.libs.validator.api.ValidationMessage.Severity;
 import be.nabu.utils.io.IOUtils;
 import be.nabu.utils.io.api.ByteBuffer;
 import be.nabu.utils.io.api.ReadableContainer;
@@ -109,7 +113,7 @@ public class RESTFragmentListener implements EventHandler<HTTPRequest, HTTPRespo
 		if (path.startsWith("/")) {
 			path = path.substring(1);
 		}
-		this.pathAnalysis = GlueListener.analyzePath(path);
+		this.pathAnalysis = GlueListener.analyzePath(path, TypeBaseUtils.getRegexes(webArtifact.getPath()));
 		DefinedType configurationType = webArtifact.getConfiguration().getConfigurationType();
 		if (configurationType != null) {
 			String configurationPath = serverPath == null ? "/" : serverPath;
@@ -265,22 +269,34 @@ public class RESTFragmentListener implements EventHandler<HTTPRequest, HTTPRespo
 					if (webArtifact.getConfig().getNamingConvention() != null) {
 						name = webArtifact.getConfig().getNamingConvention().apply(name);
 					}
-					input.set("query/" + element.getName(), sanitize(decollect(queryProperties.get(name), element), sanitizeInput));
+					try {
+						input.set("query/" + element.getName(), sanitize(decollect(queryProperties.get(name), element), sanitizeInput));
+					}
+					catch (Exception e) {
+						logger.error("Could not set query value: " + name + " = " + queryProperties.get(name), e);
+						throw new HTTPException(500, e);
+					}					
 				}
 			}
 			if (input.getType().get("header") != null && request.getContent() != null) {
 				for (Element<?> element : TypeUtils.getAllChildren((ComplexType) input.getType().get("header").getType())) {
 					Header[] headers = MimeUtils.getHeaders(RESTUtils.fieldToHeader(element.getName()), request.getContent().getHeaders());
 					if (headers != null && headers.length > 0) {
-						if (element.getType().isList(element.getProperties())) {
-							List<String> values = new ArrayList<String>();
-							for (Header header : headers) {
-								values.add(MimeUtils.getFullHeaderValue(header));
+						try {
+							if (element.getType().isList(element.getProperties())) {
+								List<String> values = new ArrayList<String>();
+								for (Header header : headers) {
+									values.add(MimeUtils.getFullHeaderValue(header));
+								}
+								input.set("header/" + element.getName(), sanitize(decollect(values, element), sanitizeInput));
 							}
-							input.set("header/" + element.getName(), sanitize(decollect(values, element), sanitizeInput));
+							else {
+								input.set("header/" + element.getName(), sanitize(MimeUtils.getFullHeaderValue(headers[0]), sanitizeInput));
+							}
 						}
-						else {
-							input.set("header/" + element.getName(), sanitize(MimeUtils.getFullHeaderValue(headers[0]), sanitizeInput));
+						catch (Exception e) {
+							logger.error("Could not set header value: " + element.getName() + " = " + Arrays.asList(headers), e);
+							throw new HTTPException(500, e);
 						}
 					}
 				}
@@ -299,11 +315,23 @@ public class RESTFragmentListener implements EventHandler<HTTPRequest, HTTPRespo
 			}
 
 			for (String key : analyzed.keySet()) {
-				input.set("path/" + key, sanitize(analyzed.get(key), sanitizeInput));
+				try {
+					input.set("path/" + key, sanitize(analyzed.get(key), sanitizeInput));
+				}
+				catch (Exception e) {
+					logger.error("Could not set path value: " + key + " = " + analyzed.get(key), e);
+					throw new HTTPException(500, e);
+				}
 			}
 			if (input.getType().get("cookie") != null) {
 				for (Element<?> element : TypeUtils.getAllChildren((ComplexType) input.getType().get("cookie").getType())) {
-					input.set("cookie/" + element.getName(), sanitize(cookies.get(element.getName()), sanitizeInput));
+					try {
+						input.set("cookie/" + element.getName(), sanitize(cookies.get(element.getName()), sanitizeInput));
+					}
+					catch (Exception e) {
+						logger.error("Could not set cookie value: " + element.getName() + " = " + cookies.get(element.getName()), e);
+						throw new HTTPException(500, e);
+					}
 				}
 			}
 			
@@ -501,9 +529,11 @@ public class RESTFragmentListener implements EventHandler<HTTPRequest, HTTPRespo
 			}
 		}
 		catch (FormatException e) {
+			report(request, e);
 			throw new HTTPException(500, "Error while executing: " + service.getId(), e);
 		}
 		catch (IOException e) {
+			report(request, e);
 			throw new HTTPException(500, "Error while executing: " + service.getId(), e);
 		}
 		catch (ServiceException e) {
@@ -514,12 +544,44 @@ public class RESTFragmentListener implements EventHandler<HTTPRequest, HTTPRespo
 				throw new HTTPException(401, e);
 			}
 			else {
+				report(request, e);
 				throw new HTTPException(500, "Error while executing: " + service.getId(), e);
 			}
+		}
+		catch (HTTPException e) {
+			report(request, e);
+			throw e;
+		}
+		catch (Exception e) {
+			report(request, e);
+			throw new HTTPException(500, "Error while executing: " + service.getId(), e);
 		}
 		finally {
 			ServiceRuntime.setGlobalContext(null);
 		}
+	}
+	
+	private void report(HTTPRequest request, Exception e) {
+		HTTPFormatter formatter = new HTTPFormatter();
+		String content = null;
+		ByteBuffer byteBuffer = IOUtils.newByteBuffer();
+		try {
+			formatter.formatRequest(request, byteBuffer);
+			content = new String(IOUtils.toBytes(byteBuffer), "UTF-8");
+		}
+		catch (Exception f) {
+			logger.warn("Can not generate report", f);
+		}
+		
+		Notification notification = new Notification();
+		notification.setContext(Arrays.asList(service.getId()));
+		notification.setType("nabu.web.rest.provider");
+		notification.setCode(0);
+		notification.setMessage("Request failed" + (e == null ? "" : ": " + e.getMessage()));
+		notification.setDescription(content + "\n\n" + Notification.format(e));
+		notification.setSeverity(Severity.ERROR);
+		
+		webApplication.getRepository().getEventDispatcher().fire(notification, this);
 	}
 
 	private List<String> decollect(List<String> list, Element<?> element) {

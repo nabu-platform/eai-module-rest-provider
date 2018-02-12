@@ -33,16 +33,16 @@ public class RESTServiceGUIManager extends ContainerArtifactGUIManager<RESTServi
 	@Override
 	public RESTService newInstance(MainController controller, RepositoryEntry entry, Value<?>...values) throws IOException {
 		RESTService restvmService = new RESTService(entry.getId());
+		Map<String, String> configuration = new HashMap<String, String>();
+		// add the id of the rest service
+		configuration.put(VMServiceGUIManager.ACTUAL_ID, entry.getId());
 		RESTInterfaceArtifact webRestArtifact = new RESTInterfaceArtifact("$self:api", entry.getContainer(), entry.getRepository());
-		restvmService.addArtifact("api", webRestArtifact, null);
+		restvmService.addArtifact("api", webRestArtifact, configuration);
 		Pipeline pipeline = new Pipeline(new Structure(), new Structure());
 		pipeline.setProperty(new ValueImpl<DefinedServiceInterface>(PipelineInterfaceProperty.getInstance(), webRestArtifact));
 		SimpleVMServiceDefinition service = new SimpleVMServiceDefinition(pipeline);
 		service.setId("$self:implementation");
-		Map<String, String> configuration = new HashMap<String, String>();
 		configuration.put(VMServiceGUIManager.INTERFACE_EDITABLE, "false");
-		// add the id of the rest service
-		configuration.put(VMServiceGUIManager.ACTUAL_ID, entry.getId());
 		restvmService.addArtifact("implementation", service, configuration);
 //		VMAuthorizationService authorization = new VMAuthorizationService(service);
 //		authorization.setId(entry.getId() + ":security");

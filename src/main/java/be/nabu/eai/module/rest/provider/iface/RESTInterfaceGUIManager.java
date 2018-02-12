@@ -59,12 +59,12 @@ public class RESTInterfaceGUIManager extends BaseJAXBGUIManager<RESTInterfaceCon
 		
 		box.getChildren().addAll(
 			properties,
-			display(box, instance.getPath()),
-			display(box, instance.getQuery(), MinOccursProperty.getInstance(), MaxOccursProperty.getInstance()),
-			display(box, instance.getHeader(), MinOccursProperty.getInstance(), MaxOccursProperty.getInstance()),
-			display(box, instance.getResponseHeader(), MinOccursProperty.getInstance(), MaxOccursProperty.getInstance()),
-			display(box, instance.getCookie(), MinOccursProperty.getInstance(), MaxOccursProperty.getInstance()),
-			display(box, instance.getSession(), MinOccursProperty.getInstance(), MaxOccursProperty.getInstance())
+			display(instance, box, instance.getPath()),
+			display(instance, box, instance.getQuery(), MinOccursProperty.getInstance(), MaxOccursProperty.getInstance()),
+			display(instance, box, instance.getHeader(), MinOccursProperty.getInstance(), MaxOccursProperty.getInstance()),
+			display(instance, box, instance.getResponseHeader(), MinOccursProperty.getInstance(), MaxOccursProperty.getInstance()),
+			display(instance, box, instance.getCookie(), MinOccursProperty.getInstance(), MaxOccursProperty.getInstance()),
+			display(instance, box, instance.getSession(), MinOccursProperty.getInstance(), MaxOccursProperty.getInstance())
 		);
 		
 		ScrollPane scroll = new ScrollPane();
@@ -77,7 +77,7 @@ public class RESTInterfaceGUIManager extends BaseJAXBGUIManager<RESTInterfaceCon
 		pane.getChildren().add(scroll);
 	}
 
-	private Tree<Element<?>> display(VBox box, Structure structure, Property<?>...updatableProperties) {
+	private Tree<Element<?>> display(RESTInterfaceArtifact instance, VBox box, Structure structure, Property<?>...updatableProperties) {
 		ElementSelectionListener elementSelectionListener = new ElementSelectionListener(MainController.getInstance(), false, true, 
 			FormatProperty.getInstance(),
 			TimezoneProperty.getInstance(),
@@ -88,6 +88,7 @@ public class RESTInterfaceGUIManager extends BaseJAXBGUIManager<RESTInterfaceCon
 			LanguageProperty.getInstance(),
 			CountryProperty.getInstance()
 		);
+		elementSelectionListener.setActualId(getActualId(instance));
 		elementSelectionListener.addUpdateableProperties(updatableProperties);
 		elementSelectionListener.setForceAllowUpdate(true);
 		final Tree<Element<?>> tree = new Tree<Element<?>>(new ElementMarshallable());
@@ -97,4 +98,5 @@ public class RESTInterfaceGUIManager extends BaseJAXBGUIManager<RESTInterfaceCon
 		tree.prefWidthProperty().bind(box.widthProperty());
 		return tree;
 	}
+
 }
