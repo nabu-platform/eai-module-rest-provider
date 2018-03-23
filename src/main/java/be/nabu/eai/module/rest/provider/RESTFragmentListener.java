@@ -113,7 +113,7 @@ public class RESTFragmentListener implements EventHandler<HTTPRequest, HTTPRespo
 		if (path.startsWith("/")) {
 			path = path.substring(1);
 		}
-		this.pathAnalysis = GlueListener.analyzePath(path, TypeBaseUtils.getRegexes(webArtifact.getPath()));
+		this.pathAnalysis = GlueListener.analyzePath(path, TypeBaseUtils.getRegexes(webArtifact.getPath()), !webArtifact.getConfig().isCaseInsensitive());
 		DefinedType configurationType = webArtifact.getConfiguration().getConfigurationType();
 		if (configurationType != null) {
 			String configurationPath = serverPath == null ? "/" : serverPath;
@@ -542,6 +542,10 @@ public class RESTFragmentListener implements EventHandler<HTTPRequest, HTTPRespo
 			}
 			else if (ServiceRuntime.NO_AUTHENTICATION.equals(e.getCode())) {
 				throw new HTTPException(401, e);
+			}
+			// this is the code thrown by the flow service for validation errors
+			else if ("VM-4".equals(e.getCode())) {
+				throw new HTTPException(400, e);
 			}
 			else {
 				report(request, e);

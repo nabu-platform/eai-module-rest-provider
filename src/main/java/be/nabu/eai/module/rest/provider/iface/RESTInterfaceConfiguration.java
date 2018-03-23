@@ -16,7 +16,7 @@ import be.nabu.eai.repository.jaxb.ArtifactXMLAdapter;
 import be.nabu.libs.types.api.DefinedType;
 
 @XmlRootElement(name = "restInterface")
-@XmlType(propOrder = { "method", "path", "queryParameters", "cookieParameters", "sessionParameters", "headerParameters", "responseHeaders", "roles", "permissionContext", "permissionAction", "preferredResponseType", "asynchronous", "inputAsStream", "outputAsStream", "input", "output", "sanitizeInput", "acceptedLanguages", "configurationType", "device", "lenient", "namingConvention", "webApplicationId", "language", "allowFormBinding" })
+@XmlType(propOrder = { "method", "path", "queryParameters", "cookieParameters", "sessionParameters", "headerParameters", "responseHeaders", "roles", "permissionContext", "permissionAction", "preferredResponseType", "asynchronous", "inputAsStream", "outputAsStream", "input", "output", "sanitizeInput", "acceptedLanguages", "configurationType", "device", "lenient", "namingConvention", "webApplicationId", "language", "allowFormBinding", "caseInsensitive" })
 public class RESTInterfaceConfiguration {
 
 	private DefinedType input, output;
@@ -35,6 +35,7 @@ public class RESTInterfaceConfiguration {
 	private boolean webApplicationId;
 	private NamingConvention namingConvention;
 	private boolean allowFormBinding;
+	private boolean caseInsensitive;
 	
 	private DefinedType configurationType;
 
@@ -206,4 +207,13 @@ public class RESTInterfaceConfiguration {
 		this.allowFormBinding = allowFormBinding;
 	}
 	
+	@Advanced
+	@Comment(title = "Whether the urls are matched case sensitive (default) or not")
+	public boolean isCaseInsensitive() {
+		return caseInsensitive;
+	}
+	public void setCaseInsensitive(boolean caseInsensitive) {
+		this.caseInsensitive = caseInsensitive;
+	}
+
 }
