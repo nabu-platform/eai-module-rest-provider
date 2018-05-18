@@ -24,6 +24,7 @@ public class RESTServiceManager extends ContainerArtifactManager<RESTService> {
 		children.add((ResourceContainer<?>) directory.getChild("api"));
 		children.add((ResourceContainer<?>) directory.getChild("implementation"));
 		children.add((ResourceContainer<?>) directory.getChild("security"));
+		children.add((ResourceContainer<?>) directory.getChild("cache"));
 		return children;
 	}
 

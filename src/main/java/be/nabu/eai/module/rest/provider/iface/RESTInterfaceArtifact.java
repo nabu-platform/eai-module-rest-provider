@@ -4,6 +4,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Date;
 import java.util.List;
 
 import org.slf4j.Logger;
@@ -226,6 +227,14 @@ public class RESTInterfaceArtifact extends JAXBArtifact<RESTInterfaceConfigurati
 			}
 			else {
 				removeAll(responseHeader);
+			}
+			if (getConfig().isCache()) {
+				Structure cache = new Structure();
+				cache.setName("cache");
+				cache.add(new SimpleElementImpl<Date>("lastModified", SimpleTypeWrapperFactory.getInstance().getWrapper().wrap(Date.class), cache, new ValueImpl<Integer>(MinOccursProperty.getInstance(), 0)));
+				cache.add(new SimpleElementImpl<String>("etag", SimpleTypeWrapperFactory.getInstance().getWrapper().wrap(String.class), cache, new ValueImpl<Integer>(MinOccursProperty.getInstance(), 0)));
+				cache.add(new SimpleElementImpl<Boolean>("mustRevalidate", SimpleTypeWrapperFactory.getInstance().getWrapper().wrap(Boolean.class), cache, new ValueImpl<Integer>(MinOccursProperty.getInstance(), 0)));
+				output.add(new ComplexElementImpl("cache", cache, output, new ValueImpl<Integer>(MinOccursProperty.getInstance(), 0)));
 			}
 			if (getConfiguration().getOutputAsStream() != null && getConfiguration().getOutputAsStream()) {
 				output.add(new SimpleElementImpl<InputStream>("content", SimpleTypeWrapperFactory.getInstance().getWrapper().wrap(InputStream.class), output));

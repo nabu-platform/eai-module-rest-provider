@@ -16,6 +16,7 @@ import java.util.Map;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import be.nabu.eai.module.http.virtual.VirtualHostArtifact;
 import be.nabu.eai.module.http.virtual.api.SourceImpl;
 import be.nabu.eai.module.rest.RESTUtils;
 import be.nabu.eai.module.rest.SPIBindingProvider;
@@ -33,6 +34,7 @@ import be.nabu.libs.authentication.api.PermissionHandler;
 import be.nabu.libs.authentication.api.RoleHandler;
 import be.nabu.libs.authentication.api.Token;
 import be.nabu.libs.authentication.api.TokenValidator;
+import be.nabu.libs.converter.ConverterFactory;
 import be.nabu.libs.evaluator.EvaluationException;
 import be.nabu.libs.evaluator.PathAnalyzer;
 import be.nabu.libs.evaluator.QueryParser;
@@ -75,6 +77,7 @@ import be.nabu.libs.types.binding.form.FormBinding;
 import be.nabu.libs.types.binding.json.JSONBinding;
 import be.nabu.libs.types.binding.xml.XMLBinding;
 import be.nabu.libs.types.properties.CollectionFormatProperty;
+import be.nabu.libs.types.structure.Structure;
 import be.nabu.libs.validator.api.ValidationMessage.Severity;
 import be.nabu.utils.io.IOUtils;
 import be.nabu.utils.io.api.ByteBuffer;
@@ -86,6 +89,7 @@ import be.nabu.utils.mime.impl.FormatException;
 import be.nabu.utils.mime.impl.MimeHeader;
 import be.nabu.utils.mime.impl.MimeUtils;
 import be.nabu.utils.mime.impl.PlainMimeContentPart;
+import be.nabu.utils.mime.impl.PlainMimeEmptyPart;
 
 public class RESTFragmentListener implements EventHandler<HTTPRequest, HTTPResponse> {
 
@@ -101,14 +105,16 @@ public class RESTFragmentListener implements EventHandler<HTTPRequest, HTTPRespo
 	private BindingProvider bindingProvider;
 	
 	private Map<String, TypeOperation> analyzedOperations = new HashMap<String, TypeOperation>();
+	private DefinedService cacheService;
 
-	public RESTFragmentListener(WebApplication webApplication, String serverPath, RESTInterfaceArtifact webArtifact, DefinedService service, Charset charset, boolean allowEncoding) throws IOException {
+	public RESTFragmentListener(WebApplication webApplication, String serverPath, RESTInterfaceArtifact webArtifact, DefinedService service, Charset charset, boolean allowEncoding, DefinedService cacheService) throws IOException {
 		this.webApplication = webApplication;
 		this.serverPath = serverPath;
 		this.webArtifact = webArtifact;
 		this.service = service;
 		this.charset = charset;
 		this.allowEncoding = allowEncoding;
+		this.cacheService = cacheService;
 		String path = webArtifact.getConfiguration().getPath();
 		if (path.startsWith("/")) {
 			path = path.substring(1);
@@ -176,7 +182,43 @@ public class RESTFragmentListener implements EventHandler<HTTPRequest, HTTPRespo
 			if (analyzed == null) {
 				return null;
 			}
-			Map<String, List<String>> cookies = HTTPUtils.getCookies(request.getContent().getHeaders());
+			
+			// do a content type check, we do not allow form content types by default
+			Header contentTypeHeader = MimeUtils.getHeader("Content-Type", request.getContent().getHeaders());
+			String contentType = contentTypeHeader == null ? null : contentTypeHeader.getValue().trim().replaceAll(";.*$", "");
+			
+			// text/plain is allowed in HTML5 (https://developer.mozilla.org/en-US/docs/Web/HTML/Element/form)
+			if (contentType != null && (WebResponseType.FORM_ENCODED.getMimeType().equalsIgnoreCase(contentType) || "multipart/form-data".equalsIgnoreCase(contentType)) || "text/plain".equalsIgnoreCase(contentType)) {
+				if (!webArtifact.getConfig().isAllowFormBinding()) {
+					throw new HTTPException(400, "Form binding not allowed: " + contentType);
+				}
+			}
+			
+			// do a referer check, we only allow cookies to be used if the referer matches the virtual host
+			Header refererHeader = MimeUtils.getHeader("Referer", request.getContent().getHeaders());
+			URI referer = refererHeader == null ? null : new URI(URIUtils.encodeURI(refererHeader.getValue()));
+			
+			boolean refererMatch = false;
+			if (referer != null) {
+				VirtualHostArtifact virtualHost = webApplication.getConfig().getVirtualHost();
+				if (referer.getHost() != null) {
+					refererMatch = referer.getHost().equals(virtualHost.getConfig().getHost());
+					if (!refererMatch) {
+						List<String> aliases = virtualHost.getConfig().getAliases();
+						if (aliases != null) {
+							for (String alias : aliases) {
+								refererMatch = referer.getHost().equals(alias);
+								if (refererMatch) {
+									break;
+								}
+							}
+						}
+					}
+				}
+			}
+			
+			// only use the cookies if we have a referer match
+			Map<String, List<String>> cookies = refererMatch ? HTTPUtils.getCookies(request.getContent().getHeaders()) : new HashMap<String, List<String>>();
 			String originalSessionId = GlueListener.getSessionId(cookies);
 			Session session = originalSessionId == null ? null : webApplication.getSessionProvider().getSession(originalSessionId);
 			
@@ -348,7 +390,6 @@ public class RESTFragmentListener implements EventHandler<HTTPRequest, HTTPRespo
 						input.set("content", IOUtils.toInputStream(readable));
 					}
 					else {
-						String contentType = MimeUtils.getContentType(request.getContent().getHeaders());
 						UnmarshallableBinding binding;
 						if (contentType == null) {
 							throw new HTTPException(400, "Unknown request content type");
@@ -424,6 +465,65 @@ public class RESTFragmentListener implements EventHandler<HTTPRequest, HTTPRespo
 				}
 			}
 			
+			// if we have a cache service, let's check if it has changed
+			if (this.cacheService != null) {
+				boolean isGet = "GET".equalsIgnoreCase(request.getMethod());
+
+				// we differentiate headers for GET requests and other requests
+				// for GET we want a 304 back to indicate nothing has changed
+				// for other methods we want to validate that the previous version is still valid before we update it through a POST/PUT/...
+				Header lastModifiedHeader = isGet 
+					? MimeUtils.getHeader("If-Modified-Since", request.getContent().getHeaders()) 
+					: MimeUtils.getHeader("If-Unmodified-Since", request.getContent().getHeaders());
+
+				Header etagHeader = isGet 
+					? MimeUtils.getHeader("If-None-Match", request.getContent().getHeaders())
+					: MimeUtils.getHeader("If-Match", request.getContent().getHeaders());
+					
+				if (lastModifiedHeader != null || etagHeader != null) {
+					ComplexContent cacheInput = Structure.cast(input, cacheService.getServiceInterface().getInputDefinition());
+					Date lastModified = lastModifiedHeader == null ? new Date() : HTTPUtils.parseDate(lastModifiedHeader.getValue());
+					if (lastModifiedHeader != null) {
+						cacheInput.set("cache/lastModified", lastModified);
+					}
+					if (etagHeader != null) {
+						cacheInput.set("cache/etag", etagHeader.getValue());
+					}
+					ServiceRuntime runtime = new ServiceRuntime(cacheService, webApplication.getRepository().newExecutionContext(token));
+					// we set the service context to the web application, rest services can be mounted in multiple applications
+					ServiceUtils.setServiceContext(runtime, webApplication.getId());
+					ComplexContent cacheOutput = runtime.run(cacheInput);
+					Boolean hasChanged = (Boolean) cacheOutput.get("hasChanged");
+					// for GET requests: unless we explicitly state that it has changed, we assume it hasn't
+					if (isGet && (hasChanged == null || !hasChanged)) {
+						List<Header> headers = new ArrayList<Header>();
+						// let's see if we explicitly set an expiration time (in seconds)
+						Integer maxAge = (Integer) cacheOutput.get("maxAge");
+						if (maxAge != null && maxAge >= 0) {
+							headers.add(new MimeHeader("Expires", HTTPUtils.formatDate(new Date(lastModified.getTime() + (1000l * maxAge)))));
+						}
+						if (lastModifiedHeader != null) {
+							headers.add(new MimeHeader("Last-Modified", lastModifiedHeader.getValue()));
+						}
+						if (etagHeader != null) {
+							headers.add(new MimeHeader("ETag", etagHeader.getValue()));
+						}
+						headers.add(new MimeHeader("Content-Length", "0"));
+						return new DefaultHTTPResponse(request, 304, HTTPCodes.getMessage(304), new PlainMimeEmptyPart(null,
+							headers.toArray(new Header[headers.size()])
+						));
+					}
+					// if it is not a GET request and the resource has changed, we block the request
+					else if (!isGet && hasChanged != null && hasChanged) {
+						List<Header> headers = new ArrayList<Header>();
+						headers.add(new MimeHeader("Content-Length", "0"));
+						return new DefaultHTTPResponse(request, 412, HTTPCodes.getMessage(412), new PlainMimeEmptyPart(null,
+							headers.toArray(new Header[headers.size()])
+						));
+					}
+				}
+			}
+			
 			if (webArtifact.getConfiguration().getAsynchronous() != null && webArtifact.getConfiguration().getAsynchronous()) {
 				webApplication.getRepository().getServiceRunner().run(service, webApplication.getRepository().newExecutionContext(token), input);
 				return HTTPUtils.newEmptyResponse(request);
@@ -437,8 +537,30 @@ public class RESTFragmentListener implements EventHandler<HTTPRequest, HTTPRespo
 				if (output != null && output.get("header") != null) {
 					ComplexContent header = (ComplexContent) output.get("header");
 					for (Element<?> element : header.getType()) {
-						String value = (String) header.get(element.getName());
-						headers.add(new MimeHeader(RESTUtils.fieldToHeader(element.getName()), value));
+						Object value = header.get(element.getName());
+						if (value != null) {
+							if (!(value instanceof String)) {
+								value = ConverterFactory.getInstance().getConverter().convert(value, String.class);
+								if (value == null) {
+									throw new IllegalArgumentException("Can not cast value for header '" + element.getName() + "' to string");
+								}
+							}
+							headers.add(new MimeHeader(RESTUtils.fieldToHeader(element.getName()), (String) value));
+						}
+					}
+				}
+				if (output != null && output.get("cache") != null) {
+					Date lastModified = (Date) output.get("cache/lastModified");
+					if (lastModified != null) {
+						headers.add(new MimeHeader("Last-Modified", HTTPUtils.formatDate(lastModified)));
+					}
+					String etag = (String) output.get("cache/etag");
+					if (etag != null) {
+						headers.add(new MimeHeader("ETag", etag));
+					}
+					Boolean mustRevalidate = (Boolean) output.get("cache/mustRevalidate");
+					if (mustRevalidate != null && mustRevalidate) {
+						headers.add(new MimeHeader("Cache-Control", "no-cache, must-revalidate"));
 					}
 				}
 				if (isNewDevice) {
@@ -482,7 +604,6 @@ public class RESTFragmentListener implements EventHandler<HTTPRequest, HTTPRespo
 					Object object = output.get("content");
 					output = object instanceof ComplexContent ? (ComplexContent) object : ComplexContentWrapperFactory.getInstance().getWrapper().wrap(object);
 					MarshallableBinding binding = request.getContent() == null ? null : getBindingProvider().getMarshallableBinding(output.getType(), charset, request.getContent().getHeaders());
-					String contentType;
 					if (binding != null) {
 						contentType = getBindingProvider().getContentType(binding);
 					}

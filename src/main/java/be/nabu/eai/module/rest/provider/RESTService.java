@@ -104,7 +104,8 @@ public class RESTService extends BaseContainerArtifact implements WebFragment, D
 				getArtifact(RESTInterfaceArtifact.class),
 				this, 
 				artifact.getConfiguration().getCharset() == null ? Charset.defaultCharset() : Charset.forName(artifact.getConfiguration().getCharset()), 
-				!EAIResourceRepository.isDevelopment()
+				!EAIResourceRepository.isDevelopment(),
+				(DefinedService) getArtifact("cache")
 			);
 			EventSubscription<HTTPRequest, HTTPResponse> subscription = artifact.getDispatcher().subscribe(HTTPRequest.class, listener);
 			subscription.filter(HTTPServerUtils.limitToPath(restPath));

@@ -22,8 +22,12 @@ import be.nabu.libs.types.properties.CommentProperty;
 import be.nabu.libs.types.properties.CountryProperty;
 import be.nabu.libs.types.properties.FormatProperty;
 import be.nabu.libs.types.properties.LanguageProperty;
+import be.nabu.libs.types.properties.MaxExclusiveProperty;
+import be.nabu.libs.types.properties.MaxInclusiveProperty;
 import be.nabu.libs.types.properties.MaxLengthProperty;
 import be.nabu.libs.types.properties.MaxOccursProperty;
+import be.nabu.libs.types.properties.MinExclusiveProperty;
+import be.nabu.libs.types.properties.MinInclusiveProperty;
 import be.nabu.libs.types.properties.MinLengthProperty;
 import be.nabu.libs.types.properties.MinOccursProperty;
 import be.nabu.libs.types.properties.PatternProperty;
@@ -76,7 +80,7 @@ public class RESTInterfaceGUIManager extends BaseJAXBGUIManager<RESTInterfaceCon
 		scroll.setContent(box);
 		pane.getChildren().add(scroll);
 	}
-
+	@SuppressWarnings("rawtypes")
 	private Tree<Element<?>> display(RESTInterfaceArtifact instance, VBox box, Structure structure, Property<?>...updatableProperties) {
 		ElementSelectionListener elementSelectionListener = new ElementSelectionListener(MainController.getInstance(), false, true, 
 			FormatProperty.getInstance(),
@@ -86,7 +90,11 @@ public class RESTInterfaceGUIManager extends BaseJAXBGUIManager<RESTInterfaceCon
 			MaxLengthProperty.getInstance(), 
 			PatternProperty.getInstance(),
 			LanguageProperty.getInstance(),
-			CountryProperty.getInstance()
+			CountryProperty.getInstance(),
+			new MinInclusiveProperty(),
+			new MaxInclusiveProperty(),
+			new MinExclusiveProperty(),
+			new MaxExclusiveProperty()
 		);
 		elementSelectionListener.setActualId(getActualId(instance));
 		elementSelectionListener.addUpdateableProperties(updatableProperties);

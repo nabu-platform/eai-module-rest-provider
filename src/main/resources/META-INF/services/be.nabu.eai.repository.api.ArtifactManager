@@ -1,2 +1,3 @@
 be.nabu.eai.module.rest.provider.RESTServiceManager
 be.nabu.eai.module.rest.provider.iface.RESTInterfaceManager
+be.nabu.eai.module.rest.provider.cache.VMCacheServiceManager

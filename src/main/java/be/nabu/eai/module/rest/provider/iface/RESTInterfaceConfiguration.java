@@ -9,6 +9,7 @@ import javax.xml.bind.annotation.adapters.XmlJavaTypeAdapter;
 
 import be.nabu.eai.api.Advanced;
 import be.nabu.eai.api.Comment;
+import be.nabu.eai.api.Hidden;
 import be.nabu.eai.api.NamingConvention;
 import be.nabu.eai.module.rest.WebMethod;
 import be.nabu.eai.module.rest.WebResponseType;
@@ -16,7 +17,7 @@ import be.nabu.eai.repository.jaxb.ArtifactXMLAdapter;
 import be.nabu.libs.types.api.DefinedType;
 
 @XmlRootElement(name = "restInterface")
-@XmlType(propOrder = { "method", "path", "queryParameters", "cookieParameters", "sessionParameters", "headerParameters", "responseHeaders", "roles", "permissionContext", "permissionAction", "preferredResponseType", "asynchronous", "inputAsStream", "outputAsStream", "input", "output", "sanitizeInput", "acceptedLanguages", "configurationType", "device", "lenient", "namingConvention", "webApplicationId", "language", "allowFormBinding", "caseInsensitive" })
+@XmlType(propOrder = { "method", "path", "queryParameters", "cookieParameters", "sessionParameters", "headerParameters", "responseHeaders", "roles", "permissionContext", "permissionAction", "preferredResponseType", "asynchronous", "inputAsStream", "outputAsStream", "input", "output", "sanitizeInput", "acceptedLanguages", "configurationType", "device", "lenient", "namingConvention", "webApplicationId", "language", "allowFormBinding", "caseInsensitive", "cache" })
 public class RESTInterfaceConfiguration {
 
 	private DefinedType input, output;
@@ -36,6 +37,7 @@ public class RESTInterfaceConfiguration {
 	private NamingConvention namingConvention;
 	private boolean allowFormBinding;
 	private boolean caseInsensitive;
+	private boolean cache;
 	
 	private DefinedType configurationType;
 
@@ -90,6 +92,7 @@ public class RESTInterfaceConfiguration {
 	public void setOutput(DefinedType output) {
 		this.output = output;
 	}
+	@Deprecated
 	public Boolean getAsynchronous() {
 		return asynchronous;
 	}
@@ -215,5 +218,13 @@ public class RESTInterfaceConfiguration {
 	public void setCaseInsensitive(boolean caseInsensitive) {
 		this.caseInsensitive = caseInsensitive;
 	}
-
+	
+	@Hidden
+	public boolean isCache() {
+		return cache;
+	}
+	public void setCache(boolean cache) {
+		this.cache = cache;
+	}
+	
 }

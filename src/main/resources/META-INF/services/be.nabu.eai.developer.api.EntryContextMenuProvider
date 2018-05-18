@@ -1,2 +1,3 @@
 be.nabu.eai.module.rest.provider.RESTServiceContextMenu
 be.nabu.eai.module.rest.provider.iface.RESTInterfaceContextMenu
+be.nabu.eai.module.rest.provider.cache.RESTServiceCacheContextMenu
