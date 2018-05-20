@@ -563,6 +563,20 @@ public class RESTFragmentListener implements EventHandler<HTTPRequest, HTTPRespo
 						headers.add(new MimeHeader("Cache-Control", "no-cache, must-revalidate"));
 					}
 				}
+				if (output != null && output.get("meta") != null) {
+					String customContentType = (String) output.get("meta/contentType");
+					if (customContentType != null) {
+						headers.add(new MimeHeader("Content-Type", customContentType));
+					}
+					Long customContentLength = (Long) output.get("meta/contentLength");
+					if (customContentLength != null) {
+						headers.add(new MimeHeader("Content-Length", customContentLength.toString()));
+					}
+					String fileName = (String) output.get("meta/fileName");
+					if (fileName != null) {
+						headers.add(new MimeHeader("Content-Disposition", "attachment;filename=\"" + fileName + "\""));
+					}
+				}
 				if (isNewDevice) {
 					ModifiableHeader cookieHeader = HTTPUtils.newSetCookieHeader(
 						"Device-" + webApplication.getRealm(), 

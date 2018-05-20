@@ -238,6 +238,12 @@ public class RESTInterfaceArtifact extends JAXBArtifact<RESTInterfaceConfigurati
 			}
 			if (getConfiguration().getOutputAsStream() != null && getConfiguration().getOutputAsStream()) {
 				output.add(new SimpleElementImpl<InputStream>("content", SimpleTypeWrapperFactory.getInstance().getWrapper().wrap(InputStream.class), output));
+				Structure meta = new Structure();
+				meta.setName("meta");
+				meta.add(new SimpleElementImpl<String>("contentType", SimpleTypeWrapperFactory.getInstance().getWrapper().wrap(String.class), meta, new ValueImpl<Integer>(MinOccursProperty.getInstance(), 0)));
+				meta.add(new SimpleElementImpl<Long>("contentLength", SimpleTypeWrapperFactory.getInstance().getWrapper().wrap(Long.class), meta, new ValueImpl<Integer>(MinOccursProperty.getInstance(), 0)));
+				meta.add(new SimpleElementImpl<String>("fileName", SimpleTypeWrapperFactory.getInstance().getWrapper().wrap(String.class), meta, new ValueImpl<Integer>(MinOccursProperty.getInstance(), 0)));
+				output.add(new ComplexElementImpl("meta", meta, output, new ValueImpl<Integer>(MinOccursProperty.getInstance(), 0)));
 			}
 			else if (getConfiguration().getOutput() != null) {
 				output.add(new ComplexElementImpl("content", (ComplexType) getConfiguration().getOutput(), output));
