@@ -1,0 +1,15 @@
+<sequence xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" disabled="false" id="b5653e48-9392-4aac-833f-f7709a2215a6">
+	<steps xsi:type="be.nabu.libs.services.vm.step.Map" disabled="false" id="569d1d1d-8045-4e1f-88c3-295614c699d5">
+		<steps xsi:type="be.nabu.libs.services.vm.step.Invoke" disabled="false" id="b4e8af7d-39ae-41a4-9535-fa54cf67e2a7" invocationOrder="0" temporaryMapping="true" serviceId="nabu.services.jdbc.utils.delete" resultName="result7d28f3734202417aba507fc869a5f849" y="62" x="62">
+			<steps xsi:type="be.nabu.libs.services.vm.step.Link" disabled="false" id="6b97a4c6-f2b0-4783-ab69-ef88f50d6551" fixedValue="false" optional="false" mask="false">
+				<from>input/path/${idField}</from>
+				<to>instanceId</to>
+			</steps>
+			<steps xsi:type="be.nabu.libs.services.vm.step.Link" disabled="false" id="38d49485-24e6-425f-88f5-fb3df402d272" fixedValue="true" optional="false" mask="false">
+				<from>${typeId}</from>
+				<to>typeId</to>
+			</steps>
+			<asynchronous>false</asynchronous>
+		</steps>
+	</steps>
+</sequence>

@@ -3,6 +3,7 @@ package be.nabu.eai.module.rest.provider.iface;
 import java.io.IOException;
 import java.util.List;
 
+import javafx.beans.property.SimpleBooleanProperty;
 import javafx.scene.control.ScrollPane;
 import javafx.scene.layout.AnchorPane;
 import javafx.scene.layout.VBox;
@@ -18,6 +19,7 @@ import be.nabu.libs.property.api.Property;
 import be.nabu.libs.property.api.Value;
 import be.nabu.libs.types.api.Element;
 import be.nabu.libs.types.base.RootElement;
+import be.nabu.libs.types.properties.CollectionFormatProperty;
 import be.nabu.libs.types.properties.CommentProperty;
 import be.nabu.libs.types.properties.CountryProperty;
 import be.nabu.libs.types.properties.FormatProperty;
@@ -91,6 +93,7 @@ public class RESTInterfaceGUIManager extends BaseJAXBGUIManager<RESTInterfaceCon
 			PatternProperty.getInstance(),
 			LanguageProperty.getInstance(),
 			CountryProperty.getInstance(),
+			CollectionFormatProperty.getInstance(),
 			new MinInclusiveProperty(),
 			new MaxInclusiveProperty(),
 			new MinExclusiveProperty(),
@@ -100,6 +103,8 @@ public class RESTInterfaceGUIManager extends BaseJAXBGUIManager<RESTInterfaceCon
 		elementSelectionListener.addUpdateableProperties(updatableProperties);
 		elementSelectionListener.setForceAllowUpdate(true);
 		final Tree<Element<?>> tree = new Tree<Element<?>>(new ElementMarshallable());
+		// TODO: introduce locking
+		ElementTreeItem.setListeners(tree, new SimpleBooleanProperty(true), true);
 		EAIDeveloperUtils.addElementExpansionHandler(tree);
 		tree.rootProperty().set(new ElementTreeItem(new RootElement(structure), null, false, false));
 		tree.getSelectionModel().selectedItemProperty().addListener(elementSelectionListener);

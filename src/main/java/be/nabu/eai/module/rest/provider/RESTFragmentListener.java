@@ -388,6 +388,10 @@ public class RESTFragmentListener implements EventHandler<HTTPRequest, HTTPRespo
 					// we want the stream
 					if (input.getType().get("content").getType() instanceof SimpleType) {
 						input.set("content", IOUtils.toInputStream(readable));
+						if (webArtifact.getConfig().getInputAsStream() != null && webArtifact.getConfig().getInputAsStream()) {
+							input.set("meta/contentType", MimeUtils.getContentType(request.getContent().getHeaders()));
+							input.set("meta/fileName", MimeUtils.getName(request.getContent().getHeaders()));
+						}
 					}
 					else {
 						UnmarshallableBinding binding;
