@@ -194,7 +194,7 @@ public class RESTFragmentListener implements EventHandler<HTTPRequest, HTTPRespo
 				}
 			}
 			
-			// do a referer check, we only allow cookies to be used if the referer matches the virtual host
+			// do a referer check, we only allow cookies to be used if the referer matches the virtual host, because we are dealing with rest services there is no "initial page" scenario to keep track off
 			Header refererHeader = MimeUtils.getHeader("Referer", request.getContent().getHeaders());
 			URI referer = refererHeader == null ? null : new URI(URIUtils.encodeURI(refererHeader.getValue()));
 			
