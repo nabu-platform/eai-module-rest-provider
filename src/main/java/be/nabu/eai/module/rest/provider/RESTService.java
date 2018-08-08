@@ -15,6 +15,7 @@ import be.nabu.eai.module.rest.provider.iface.RESTInterfaceArtifact;
 import be.nabu.eai.module.web.application.WebApplication;
 import be.nabu.eai.module.web.application.WebFragment;
 import be.nabu.eai.module.web.application.WebFragmentConfiguration;
+import be.nabu.eai.module.web.application.api.PermissionWithRole;
 import be.nabu.eai.repository.EAIResourceRepository;
 import be.nabu.eai.repository.artifacts.container.BaseContainerArtifact;
 import be.nabu.libs.artifacts.api.Artifact;
@@ -42,18 +43,20 @@ import be.nabu.libs.types.api.DefinedType;
 
 public class RESTService extends BaseContainerArtifact implements WebFragment, DefinedService, ServiceAuthorizerProvider {
 
-	public static class PermissionImplementation implements Permission {
+	public static class PermissionImplementation implements PermissionWithRole {
 		
 		private String context;
 		private String action;
+		private List<String> roles;
 
 		public PermissionImplementation() {
 			// auto
 		}
 		
-		public PermissionImplementation(String context, String action) {
+		public PermissionImplementation(String context, String action, List<String> roles) {
 			this.context = context;
 			this.action = action;
+			this.roles = roles;
 		}
 		
 		@Override
@@ -71,6 +74,14 @@ public class RESTService extends BaseContainerArtifact implements WebFragment, D
 		}
 		public void setAction(String action) {
 			this.action = action;
+		}
+
+		@Override
+		public List<String> getRoles() {
+			return roles;
+		}
+		public void setRoles(List<String> roles) {
+			this.roles = roles;
 		}
 	}
 
@@ -146,8 +157,8 @@ public class RESTService extends BaseContainerArtifact implements WebFragment, D
 	public List<Permission> getPermissions(WebApplication webArtifact, String path) {
 		List<Permission> permissions = new ArrayList<Permission>();
 		RESTInterfaceArtifact artifact = getArtifact(RESTInterfaceArtifact.class);
-		if (artifact.getConfig().getPermissionAction() != null) {
-			permissions.add(new PermissionImplementation(artifact.getConfig().getPermissionContext(), artifact.getConfig().getPermissionAction()));
+		if (artifact.getConfig().getPermissionAction() != null || artifact.getConfig().getRoles() != null) {
+			permissions.add(new PermissionImplementation(artifact.getConfig().getPermissionContext(), artifact.getConfig().getPermissionAction(), artifact.getConfig().getRoles()));
 		}
 		return permissions;
 	}

@@ -17,7 +17,7 @@ import be.nabu.eai.repository.jaxb.ArtifactXMLAdapter;
 import be.nabu.libs.types.api.DefinedType;
 
 @XmlRootElement(name = "restInterface")
-@XmlType(propOrder = { "method", "path", "queryParameters", "cookieParameters", "sessionParameters", "headerParameters", "responseHeaders", "roles", "permissionContext", "permissionAction", "preferredResponseType", "asynchronous", "inputAsStream", "outputAsStream", "input", "output", "sanitizeInput", "acceptedLanguages", "configurationType", "device", "lenient", "namingConvention", "webApplicationId", "language", "allowFormBinding", "caseInsensitive", "cache" })
+@XmlType(propOrder = { "method", "path", "queryParameters", "cookieParameters", "sessionParameters", "headerParameters", "responseHeaders", "roles", "permissionContext", "permissionAction", "preferredResponseType", "asynchronous", "inputAsStream", "outputAsStream", "input", "output", "sanitizeInput", "acceptedLanguages", "configurationType", "device", "lenient", "namingConvention", "webApplicationId", "language", "allowFormBinding", "caseInsensitive", "cache", "allowCookiesWithoutReferer", "allowCookiesWithExternalReferer" })
 public class RESTInterfaceConfiguration {
 
 	private DefinedType input, output;
@@ -38,6 +38,12 @@ public class RESTInterfaceConfiguration {
 	private boolean allowFormBinding;
 	private boolean caseInsensitive;
 	private boolean cache;
+	// allow cookies to be used if there is no referer
+	// specifically IE does not send a referer when window.open is used
+	// this can potentially be an issue when downloading files via a REST service
+	private boolean allowCookiesWithoutReferer;
+	// add for completeness sake
+	private boolean allowCookiesWithExternalReferer;
 	
 	private DefinedType configurationType;
 
@@ -226,5 +232,22 @@ public class RESTInterfaceConfiguration {
 	public void setCache(boolean cache) {
 		this.cache = cache;
 	}
+	
+	@Advanced
+	public boolean isAllowCookiesWithoutReferer() {
+		return allowCookiesWithoutReferer;
+	}
+	public void setAllowCookiesWithoutReferer(boolean allowCookiesWithoutReferer) {
+		this.allowCookiesWithoutReferer = allowCookiesWithoutReferer;
+	}
+	
+	@Advanced
+	public boolean isAllowCookiesWithExternalReferer() {
+		return allowCookiesWithExternalReferer;
+	}
+	public void setAllowCookiesWithExternalReferer(boolean allowCookiesWithExternalReferer) {
+		this.allowCookiesWithExternalReferer = allowCookiesWithExternalReferer;
+	}
+	
 	
 }

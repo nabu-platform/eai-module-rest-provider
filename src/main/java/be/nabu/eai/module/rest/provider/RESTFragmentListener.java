@@ -160,6 +160,7 @@ public class RESTFragmentListener implements EventHandler<HTTPRequest, HTTPRespo
 	@SuppressWarnings("unchecked")
 	@Override
 	public HTTPResponse handle(HTTPRequest request) {
+		Token token = null;
 		try {
 			ServiceRuntime.setGlobalContext(new HashMap<String, Object>());
 			// stop fast if wrong method
@@ -215,6 +216,12 @@ public class RESTFragmentListener implements EventHandler<HTTPRequest, HTTPRespo
 						}
 					}
 				}
+				if (!refererMatch && webArtifact.getConfig().isAllowCookiesWithExternalReferer()) {
+					refererMatch = true;
+				}
+			}
+			else if (webArtifact.getConfig().isAllowCookiesWithoutReferer()) {
+				refererMatch = true;
 			}
 			
 			// only use the cookies if we have a referer match
@@ -224,7 +231,7 @@ public class RESTFragmentListener implements EventHandler<HTTPRequest, HTTPRespo
 			
 			// authentication tokens in the request get precedence over session-based authentication
 			AuthenticationHeader authenticationHeader = HTTPUtils.getAuthenticationHeader(request);
-			Token token = authenticationHeader == null ? null : authenticationHeader.getToken();
+			token = authenticationHeader == null ? null : authenticationHeader.getToken();
 			
 			Device device = null;
 			boolean isNewDevice = false;
@@ -668,11 +675,11 @@ public class RESTFragmentListener implements EventHandler<HTTPRequest, HTTPRespo
 			}
 		}
 		catch (FormatException e) {
-			report(request, e);
+			report(request, e, token);
 			throw new HTTPException(500, "Error while executing: " + service.getId(), e);
 		}
 		catch (IOException e) {
-			report(request, e);
+			report(request, e, token);
 			throw new HTTPException(500, "Error while executing: " + service.getId(), e);
 		}
 		catch (ServiceException e) {
@@ -687,16 +694,16 @@ public class RESTFragmentListener implements EventHandler<HTTPRequest, HTTPRespo
 				throw new HTTPException(400, e);
 			}
 			else {
-				report(request, e);
+				report(request, e, token);
 				throw new HTTPException(500, "Error while executing: " + service.getId(), e);
 			}
 		}
 		catch (HTTPException e) {
-			report(request, e);
+			report(request, e, token);
 			throw e;
 		}
 		catch (Exception e) {
-			report(request, e);
+			report(request, e, token);
 			throw new HTTPException(500, "Error while executing: " + service.getId(), e);
 		}
 		finally {
@@ -704,8 +711,12 @@ public class RESTFragmentListener implements EventHandler<HTTPRequest, HTTPRespo
 		}
 	}
 	
-	private void report(HTTPRequest request, Exception e) {
+	private void report(HTTPRequest request, Exception e, Token token) {
 		HTTPFormatter formatter = new HTTPFormatter();
+		// do not allow binary, we are stringifying the request
+		formatter.getFormatter().setAllowBinary(false);
+		// do not allow cookies to be stored, for GDPR reasons (they might contain identifiable information)
+		formatter.getFormatter().ignoreHeaders("Cookie");
 		String content = null;
 		ByteBuffer byteBuffer = IOUtils.newByteBuffer();
 		try {
@@ -717,10 +728,16 @@ public class RESTFragmentListener implements EventHandler<HTTPRequest, HTTPRespo
 		}
 		
 		Notification notification = new Notification();
-		notification.setContext(Arrays.asList(service.getId()));
+		if (token != null) {
+			notification.setAlias(token.getName());
+			notification.setRealm(token.getRealm());
+		}
+		// the application is the context, not the rest service as that might be a generic one
+		notification.setServiceContext(webApplication.getId());
+		notification.setContext(Arrays.asList(service.getId(), webApplication.getId()));
 		notification.setType("nabu.web.rest.provider");
-		notification.setCode(0);
-		notification.setMessage("Request failed" + (e == null ? "" : ": " + e.getMessage()));
+		notification.setCode(e instanceof HTTPException ? ((HTTPException) e).getCode() : 0);
+		notification.setMessage("REST Request failed" + (e == null ? "" : ": " + e.getMessage()));
 		notification.setDescription(content + "\n\n" + Notification.format(e));
 		notification.setSeverity(Severity.ERROR);
 		
