@@ -309,6 +309,9 @@ public class RESTFragmentListener implements EventHandler<HTTPRequest, HTTPRespo
 			if (input.getType().get("webApplicationId") != null) {
 				input.set("webApplicationId", webApplication.getId());
 			}
+			if (input.getType().get("request") != null) {
+				input.set("request", request);
+			}
 			if (input.getType().get("configuration") != null) {
 				input.set("configuration", configuration);
 			}
@@ -717,6 +720,7 @@ public class RESTFragmentListener implements EventHandler<HTTPRequest, HTTPRespo
 		formatter.getFormatter().setAllowBinary(false);
 		// do not allow cookies to be stored, for GDPR reasons (they might contain identifiable information)
 		formatter.getFormatter().ignoreHeaders("Cookie");
+		formatter.getFormatter().ignoreHeaders("Authorization");
 		String content = null;
 		ByteBuffer byteBuffer = IOUtils.newByteBuffer();
 		try {

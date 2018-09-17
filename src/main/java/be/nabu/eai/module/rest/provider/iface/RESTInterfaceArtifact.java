@@ -14,6 +14,7 @@ import be.nabu.eai.module.rest.RESTUtils;
 import be.nabu.eai.repository.api.Repository;
 import be.nabu.eai.repository.artifacts.jaxb.JAXBArtifact;
 import be.nabu.libs.authentication.api.Device;
+import be.nabu.libs.http.api.HTTPRequest;
 import be.nabu.libs.http.glue.GlueListener;
 import be.nabu.libs.property.api.Value;
 import be.nabu.libs.resources.api.ResourceContainer;
@@ -142,7 +143,8 @@ public class RESTInterfaceArtifact extends JAXBArtifact<RESTInterfaceConfigurati
 				List<String> available = removeUnused(session, names);
 				for (String name : names) {
 					if (!available.contains(name)) {
-						session.add(new SimpleElementImpl<String>(name, SimpleTypeWrapperFactory.getInstance().getWrapper().wrap(String.class), session, new ValueImpl<Integer>(MinOccursProperty.getInstance(), 0)));
+						//session.add(new SimpleElementImpl<String>(name, SimpleTypeWrapperFactory.getInstance().getWrapper().wrap(String.class), session, new ValueImpl<Integer>(MinOccursProperty.getInstance(), 0)));
+						session.add(new ComplexElementImpl(name, (ComplexType) BeanResolver.getInstance().resolve(Object.class), session, new ValueImpl<Integer>(MinOccursProperty.getInstance(), 0)));
 					}
 				}
 				boolean required = true;
@@ -255,6 +257,9 @@ public class RESTInterfaceArtifact extends JAXBArtifact<RESTInterfaceConfigurati
 			}
 			if (getConfig().isWebApplicationId()) {
 				input.add(new SimpleElementImpl<String>("webApplicationId", SimpleTypeWrapperFactory.getInstance().getWrapper().wrap(String.class), input));
+			}
+			if (getConfig().isRequest()) {
+				input.add(new ComplexElementImpl("request", (ComplexType) BeanResolver.getInstance().resolve(HTTPRequest.class), input));
 			}
 			this.input = input;
 			this.output = output;

@@ -17,7 +17,7 @@ import be.nabu.eai.repository.jaxb.ArtifactXMLAdapter;
 import be.nabu.libs.types.api.DefinedType;
 
 @XmlRootElement(name = "restInterface")
-@XmlType(propOrder = { "method", "path", "queryParameters", "cookieParameters", "sessionParameters", "headerParameters", "responseHeaders", "roles", "permissionContext", "permissionAction", "preferredResponseType", "asynchronous", "inputAsStream", "outputAsStream", "input", "output", "sanitizeInput", "acceptedLanguages", "configurationType", "device", "lenient", "namingConvention", "webApplicationId", "language", "allowFormBinding", "caseInsensitive", "cache", "allowCookiesWithoutReferer", "allowCookiesWithExternalReferer" })
+@XmlType(propOrder = { "method", "path", "queryParameters", "cookieParameters", "sessionParameters", "headerParameters", "responseHeaders", "roles", "permissionContext", "permissionAction", "preferredResponseType", "asynchronous", "inputAsStream", "outputAsStream", "input", "output", "sanitizeInput", "acceptedLanguages", "configurationType", "device", "lenient", "namingConvention", "webApplicationId", "language", "allowFormBinding", "caseInsensitive", "cache", "allowCookiesWithoutReferer", "allowCookiesWithExternalReferer", "request" })
 public class RESTInterfaceConfiguration {
 
 	private DefinedType input, output;
@@ -38,6 +38,7 @@ public class RESTInterfaceConfiguration {
 	private boolean allowFormBinding;
 	private boolean caseInsensitive;
 	private boolean cache;
+	private boolean request;
 	// allow cookies to be used if there is no referer
 	// specifically IE does not send a referer when window.open is used
 	// this can potentially be an issue when downloading files via a REST service
@@ -249,5 +250,12 @@ public class RESTInterfaceConfiguration {
 		this.allowCookiesWithExternalReferer = allowCookiesWithExternalReferer;
 	}
 	
+	@Advanced
+	public boolean isRequest() {
+		return request;
+	}
+	public void setRequest(boolean includeRequest) {
+		this.request = includeRequest;
+	}
 	
 }

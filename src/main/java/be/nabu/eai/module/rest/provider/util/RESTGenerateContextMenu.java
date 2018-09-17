@@ -63,7 +63,7 @@ public class RESTGenerateContextMenu implements EntryContextMenuProvider {
 					properties.add(new SimpleProperty<DefinedType>("Type", DefinedType.class, true));
 					properties.add(new SimpleProperty<Boolean>("Overwrite", Boolean.class, false));
 					final SimplePropertyUpdater updater = new SimplePropertyUpdater(true, properties);
-					EAIDeveloperUtils.buildPopup(MainController.getInstance(), updater, "Generate structure from JSON", new EventHandler<ActionEvent>() {
+					EAIDeveloperUtils.buildPopup(MainController.getInstance(), updater, "Generate CRUD REST services", new EventHandler<ActionEvent>() {
 						@SuppressWarnings({ "unchecked", "rawtypes" })
 						@Override
 						public void handle(ActionEvent arg0) {
@@ -73,8 +73,6 @@ public class RESTGenerateContextMenu implements EntryContextMenuProvider {
 								overwrite = false;
 							}
 							if (type instanceof ComplexType) {
-//								StructureManager;
-								
 								
 								try {
 									// create the structures
