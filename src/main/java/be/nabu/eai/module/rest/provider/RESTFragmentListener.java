@@ -184,6 +184,25 @@ public class RESTFragmentListener implements EventHandler<HTTPRequest, HTTPRespo
 				return null;
 			}
 			
+			Map<String, List<String>> queryProperties = URIUtils.getQueryProperties(uri);
+			
+			// if we allow (some) headers as query parameter, override the request
+			// we currently allow you to fixate the "accept" to determine the return type, the language and the content disposition (to force a download)
+			if (webArtifact.getConfig().isAllowHeaderAsQueryParameter()) {
+				for (String key : queryProperties.keySet()) {
+					if (key.startsWith("header:") && !queryProperties.get(key).isEmpty()) {
+						String headerName = key.substring("header:".length());
+						for (String allowed : Arrays.asList("Accept", "Accept-Language", "Accept-Content-Disposition")) {
+							if (headerName.equalsIgnoreCase(allowed)) {
+								request.getContent().removeHeader(allowed);
+								request.getContent().setHeader(MimeHeader.parseHeader(allowed + ":" + queryProperties.get(key).get(0)));
+								break;
+							}
+						}
+					}
+				}
+			}
+			
 			// do a content type check, we do not allow form content types by default
 			Header contentTypeHeader = MimeUtils.getHeader("Content-Type", request.getContent().getHeaders());
 			String contentType = contentTypeHeader == null ? null : contentTypeHeader.getValue().trim().replaceAll(";.*$", "");
@@ -302,8 +321,6 @@ public class RESTFragmentListener implements EventHandler<HTTPRequest, HTTPRespo
 			}
 
 			boolean sanitizeInput = webArtifact.getConfiguration().getSanitizeInput() != null && webArtifact.getConfiguration().getSanitizeInput();
-			
-			Map<String, List<String>> queryProperties = URIUtils.getQueryProperties(uri);
 			
 			ComplexContent input = service.getServiceInterface().getInputDefinition().newInstance();
 			if (input.getType().get("webApplicationId") != null) {
@@ -588,6 +605,20 @@ public class RESTFragmentListener implements EventHandler<HTTPRequest, HTTPRespo
 					}
 					String fileName = (String) output.get("meta/fileName");
 					if (fileName != null) {
+						headers.add(new MimeHeader("Content-Disposition", "attachment;filename=\"" + fileName + "\""));
+					}
+				}
+				else {
+					Map<String, String> values = MimeUtils.getHeaderAsValues("Accept-Content-Disposition", request.getContent().getHeaders());
+					// we are asking for an attachment download
+					if (values.get("value") != null && values.get("value").equalsIgnoreCase("attachment")) {
+						String fileName = values.get("filename");
+						if (fileName != null) {
+							fileName = fileName.replaceAll("[^\\w.-]+", "");
+						}
+						else {
+							fileName = "unnamed";
+						}
 						headers.add(new MimeHeader("Content-Disposition", "attachment;filename=\"" + fileName + "\""));
 					}
 				}

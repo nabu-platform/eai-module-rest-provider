@@ -17,7 +17,7 @@ import be.nabu.eai.repository.jaxb.ArtifactXMLAdapter;
 import be.nabu.libs.types.api.DefinedType;
 
 @XmlRootElement(name = "restInterface")
-@XmlType(propOrder = { "method", "path", "queryParameters", "cookieParameters", "sessionParameters", "headerParameters", "responseHeaders", "roles", "permissionContext", "permissionAction", "preferredResponseType", "asynchronous", "inputAsStream", "outputAsStream", "input", "output", "sanitizeInput", "acceptedLanguages", "configurationType", "device", "lenient", "namingConvention", "webApplicationId", "language", "allowFormBinding", "caseInsensitive", "cache", "allowCookiesWithoutReferer", "allowCookiesWithExternalReferer", "request" })
+@XmlType(propOrder = { "method", "path", "queryParameters", "cookieParameters", "sessionParameters", "headerParameters", "responseHeaders", "roles", "permissionContext", "permissionAction", "preferredResponseType", "asynchronous", "inputAsStream", "outputAsStream", "input", "output", "sanitizeInput", "acceptedLanguages", "configurationType", "device", "lenient", "namingConvention", "webApplicationId", "language", "allowFormBinding", "caseInsensitive", "cache", "allowCookiesWithoutReferer", "allowCookiesWithExternalReferer", "request", "allowHeaderAsQueryParameter" })
 public class RESTInterfaceConfiguration {
 
 	private DefinedType input, output;
@@ -45,6 +45,12 @@ public class RESTInterfaceConfiguration {
 	private boolean allowCookiesWithoutReferer;
 	// add for completeness sake
 	private boolean allowCookiesWithExternalReferer;
+	
+	// you can allow headers to be put in the query parameter list
+	// this is specifically done to circumvent restrictions in html 4 and previous where it is nearly impossible to do a clean ajax-based download
+	// in html 5 you can serialize the data and download it using an injected "a" tag with download attribute, but IE support is lacking in this regard (and edge only since build 14)
+	// note that this can also be a nifty feature when simply sending a link to someone as you have no control over the headers they send to retrieve it
+	private boolean allowHeaderAsQueryParameter;
 	
 	private DefinedType configurationType;
 
@@ -257,5 +263,14 @@ public class RESTInterfaceConfiguration {
 	public void setRequest(boolean includeRequest) {
 		this.request = includeRequest;
 	}
+	
+	@Advanced
+	public boolean isAllowHeaderAsQueryParameter() {
+		return allowHeaderAsQueryParameter;
+	}
+	public void setAllowHeaderAsQueryParameter(boolean allowHeaderAsQueryParameter) {
+		this.allowHeaderAsQueryParameter = allowHeaderAsQueryParameter;
+	}
+
 	
 }
