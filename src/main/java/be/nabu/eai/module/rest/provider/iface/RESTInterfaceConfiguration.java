@@ -17,7 +17,7 @@ import be.nabu.eai.repository.jaxb.ArtifactXMLAdapter;
 import be.nabu.libs.types.api.DefinedType;
 
 @XmlRootElement(name = "restInterface")
-@XmlType(propOrder = { "method", "path", "queryParameters", "cookieParameters", "sessionParameters", "headerParameters", "responseHeaders", "roles", "permissionContext", "permissionAction", "preferredResponseType", "asynchronous", "inputAsStream", "outputAsStream", "input", "output", "sanitizeInput", "acceptedLanguages", "configurationType", "device", "lenient", "namingConvention", "webApplicationId", "language", "allowFormBinding", "caseInsensitive", "cache", "allowCookiesWithoutReferer", "allowCookiesWithExternalReferer", "request", "allowHeaderAsQueryParameter" })
+@XmlType(propOrder = { "method", "path", "queryParameters", "cookieParameters", "sessionParameters", "headerParameters", "responseHeaders", "roles", "permissionContext", "permissionAction", "preferredResponseType", "asynchronous", "inputAsStream", "outputAsStream", "input", "output", "sanitizeInput", "acceptedLanguages", "configurationType", "device", "lenient", "namingConvention", "webApplicationId", "language", "allowFormBinding", "caseInsensitive", "cache", "allowCookiesWithoutReferer", "allowCookiesWithExternalReferer", "request", "allowHeaderAsQueryParameter", "useServerCache", "source" })
 public class RESTInterfaceConfiguration {
 
 	private DefinedType input, output;
@@ -37,8 +37,8 @@ public class RESTInterfaceConfiguration {
 	private NamingConvention namingConvention;
 	private boolean allowFormBinding;
 	private boolean caseInsensitive;
-	private boolean cache;
-	private boolean request;
+	private boolean cache, useServerCache;
+	private boolean request, source;
 	// allow cookies to be used if there is no referer
 	// specifically IE does not send a referer when window.open is used
 	// this can potentially be an issue when downloading files via a REST service
@@ -271,6 +271,22 @@ public class RESTInterfaceConfiguration {
 	public void setAllowHeaderAsQueryParameter(boolean allowHeaderAsQueryParameter) {
 		this.allowHeaderAsQueryParameter = allowHeaderAsQueryParameter;
 	}
-
+	
+	@Advanced
+	@Comment(title = "Whether or not to use the server cache (if available) to fill in etag and/or last modified headers and validate them against it")
+	public boolean isUseServerCache() {
+		return useServerCache;
+	}
+	public void setUseServerCache(boolean useServerCache) {
+		this.useServerCache = useServerCache;
+	}
+	
+	@Advanced
+	public boolean isSource() {
+		return source;
+	}
+	public void setSource(boolean source) {
+		this.source = source;
+	}
 	
 }

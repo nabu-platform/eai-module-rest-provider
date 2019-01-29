@@ -36,7 +36,10 @@ import be.nabu.libs.services.api.ServiceInstanceWithPipeline;
 import be.nabu.libs.services.api.ServiceInterface;
 import be.nabu.libs.services.vm.SimpleVMServiceDefinition;
 import be.nabu.libs.services.vm.VMServiceInstance;
+import be.nabu.libs.services.vm.api.Step;
+import be.nabu.libs.services.vm.api.StepGroup;
 import be.nabu.libs.services.vm.api.VMService;
+import be.nabu.libs.services.vm.step.Throw;
 import be.nabu.libs.types.api.ComplexContent;
 import be.nabu.libs.types.api.ComplexType;
 import be.nabu.libs.types.api.DefinedType;
@@ -83,6 +86,30 @@ public class RESTService extends BaseContainerArtifact implements WebFragment, D
 		public void setRoles(List<String> roles) {
 			this.roles = roles;
 		}
+	}
+	
+	private void getAdditionalCodes(StepGroup group, List<Integer> codes) {
+		for (Step step : group.getChildren()) {
+			if (step instanceof Throw) {
+				String code = ((Throw) step).getCode();
+				if (code != null && code.matches("^[0-9]{3}$")) {
+					int parsed = Integer.parseInt(code);
+					if (!codes.contains(parsed)) {
+						codes.add(parsed);
+					}
+				}
+			}
+			if (step instanceof StepGroup) {
+				getAdditionalCodes((StepGroup) step, codes);
+			}
+		}
+	}
+	
+	public List<Integer> getAdditionalCodes() {
+		SimpleVMServiceDefinition service = getArtifact("implementation");
+		List<Integer> codes = new ArrayList<Integer>();
+		getAdditionalCodes(service.getRoot(), codes);
+		return codes;
 	}
 
 	private Map<String, EventSubscription<?, ?>> subscriptions = new HashMap<String, EventSubscription<?, ?>>();

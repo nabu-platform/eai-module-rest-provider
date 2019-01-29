@@ -10,6 +10,7 @@ import java.util.List;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import be.nabu.eai.module.http.virtual.api.Source;
 import be.nabu.eai.module.rest.RESTUtils;
 import be.nabu.eai.repository.api.Repository;
 import be.nabu.eai.repository.artifacts.jaxb.JAXBArtifact;
@@ -260,6 +261,9 @@ public class RESTInterfaceArtifact extends JAXBArtifact<RESTInterfaceConfigurati
 			}
 			if (getConfig().isRequest()) {
 				input.add(new ComplexElementImpl("request", (ComplexType) BeanResolver.getInstance().resolve(HTTPRequest.class), input));
+			}
+			if (getConfig().isSource()) {
+				input.add(new ComplexElementImpl("source", (ComplexType) BeanResolver.getInstance().resolve(Source.class), input));
 			}
 			this.input = input;
 			this.output = output;

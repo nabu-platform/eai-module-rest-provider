@@ -26,6 +26,7 @@ import be.nabu.eai.module.rest.provider.iface.RESTInterfaceArtifact;
 import be.nabu.eai.module.web.application.WebApplication;
 import be.nabu.eai.module.web.application.WebApplicationUtils;
 import be.nabu.eai.module.web.application.rate.RateLimiter;
+import be.nabu.eai.repository.EAIResourceRepository;
 import be.nabu.eai.repository.Notification;
 import be.nabu.libs.authentication.api.Authenticator;
 import be.nabu.libs.authentication.api.Device;
@@ -34,6 +35,10 @@ import be.nabu.libs.authentication.api.PermissionHandler;
 import be.nabu.libs.authentication.api.RoleHandler;
 import be.nabu.libs.authentication.api.Token;
 import be.nabu.libs.authentication.api.TokenValidator;
+import be.nabu.libs.cache.api.Cache;
+import be.nabu.libs.cache.api.CacheEntry;
+import be.nabu.libs.cache.api.CacheWithHash;
+import be.nabu.libs.cache.api.ExplorableCache;
 import be.nabu.libs.converter.ConverterFactory;
 import be.nabu.libs.evaluator.EvaluationException;
 import be.nabu.libs.evaluator.PathAnalyzer;
@@ -60,6 +65,7 @@ import be.nabu.libs.resources.URIUtils;
 import be.nabu.libs.services.ServiceRuntime;
 import be.nabu.libs.services.ServiceUtils;
 import be.nabu.libs.services.api.DefinedService;
+import be.nabu.libs.services.api.ExecutionContext;
 import be.nabu.libs.services.api.ServiceException;
 import be.nabu.libs.types.ComplexContentWrapperFactory;
 import be.nabu.libs.types.TypeUtils;
@@ -161,6 +167,7 @@ public class RESTFragmentListener implements EventHandler<HTTPRequest, HTTPRespo
 	@Override
 	public HTTPResponse handle(HTTPRequest request) {
 		Token token = null;
+		Device device = null;
 		try {
 			ServiceRuntime.setGlobalContext(new HashMap<String, Object>());
 			// stop fast if wrong method
@@ -210,7 +217,7 @@ public class RESTFragmentListener implements EventHandler<HTTPRequest, HTTPRespo
 			// text/plain is allowed in HTML5 (https://developer.mozilla.org/en-US/docs/Web/HTML/Element/form)
 			if (contentType != null && (WebResponseType.FORM_ENCODED.getMimeType().equalsIgnoreCase(contentType) || "multipart/form-data".equalsIgnoreCase(contentType)) || "text/plain".equalsIgnoreCase(contentType)) {
 				if (!webArtifact.getConfig().isAllowFormBinding()) {
-					throw new HTTPException(400, "Form binding not allowed: " + contentType);
+					throw new HTTPException(415, "Form binding not allowed: " + contentType);
 				}
 			}
 			
@@ -243,8 +250,8 @@ public class RESTFragmentListener implements EventHandler<HTTPRequest, HTTPRespo
 				refererMatch = true;
 			}
 			
-			// only use the cookies if we have a referer match
-			Map<String, List<String>> cookies = refererMatch ? HTTPUtils.getCookies(request.getContent().getHeaders()) : new HashMap<String, List<String>>();
+			// only use the cookies if we have a referer match (or are in development modus, it makes debugging slightly easier)
+			Map<String, List<String>> cookies = refererMatch || EAIResourceRepository.isDevelopment() ? HTTPUtils.getCookies(request.getContent().getHeaders()) : new HashMap<String, List<String>>();
 			String originalSessionId = GlueListener.getSessionId(cookies);
 			Session session = originalSessionId == null ? null : webApplication.getSessionProvider().getSession(originalSessionId);
 			
@@ -252,7 +259,6 @@ public class RESTFragmentListener implements EventHandler<HTTPRequest, HTTPRespo
 			AuthenticationHeader authenticationHeader = HTTPUtils.getAuthenticationHeader(request);
 			token = authenticationHeader == null ? null : authenticationHeader.getToken();
 			
-			Device device = null;
 			boolean isNewDevice = false;
 			String deviceId = null;
 			
@@ -328,6 +334,9 @@ public class RESTFragmentListener implements EventHandler<HTTPRequest, HTTPRespo
 			}
 			if (input.getType().get("request") != null) {
 				input.set("request", request);
+			}
+			if (input.getType().get("source") != null) {
+				input.set("source", new SourceImpl(PipelineUtils.getPipeline().getSourceContext()));
 			}
 			if (input.getType().get("configuration") != null) {
 				input.set("configuration", configuration);
@@ -423,7 +432,7 @@ public class RESTFragmentListener implements EventHandler<HTTPRequest, HTTPRespo
 					else {
 						UnmarshallableBinding binding;
 						if (contentType == null) {
-							throw new HTTPException(400, "Unknown request content type");
+							throw new HTTPException(415, "Unsupported request content type: " + contentType);
 						}
 						else if (contentType.equalsIgnoreCase("application/xml") || contentType.equalsIgnoreCase("text/xml")) {
 							binding = new XMLBinding((ComplexType) input.getType().get("content").getType(), charset);
@@ -444,13 +453,13 @@ public class RESTFragmentListener implements EventHandler<HTTPRequest, HTTPRespo
 								binding = new FormBinding((ComplexType) input.getType().get("content").getType(), charset);
 							}
 							else {
-								throw new HTTPException(400, "Form binding not allowed for this rest service");
+								throw new HTTPException(415, "Form binding not allowed for this rest service");
 							}
 						}
 						else {
 							binding = getBindingProvider().getUnmarshallableBinding((ComplexType) input.getType().get("content").getType(), charset, request.getContent().getHeaders());
 							if (binding == null) {
-								throw new HTTPException(400, "Unsupported request content type: " + contentType);
+								throw new HTTPException(415, "Unsupported request content type: " + contentType);
 							}
 						}
 						try {
@@ -496,8 +505,12 @@ public class RESTFragmentListener implements EventHandler<HTTPRequest, HTTPRespo
 				}
 			}
 			
+			ExecutionContext newExecutionContext = webApplication.getRepository().newExecutionContext(token);
+			
 			// if we have a cache service, let's check if it has changed
-			if (this.cacheService != null) {
+			// if we have toggled the use of service cache, we don't need an explicit service (though it is still possible)
+			if (this.cacheService != null || webArtifact.getConfig().isUseServerCache()) {
+				
 				boolean isGet = "GET".equalsIgnoreCase(request.getMethod());
 
 				// we differentiate headers for GET requests and other requests
@@ -512,40 +525,101 @@ public class RESTFragmentListener implements EventHandler<HTTPRequest, HTTPRespo
 					: MimeUtils.getHeader("If-Match", request.getContent().getHeaders());
 					
 				if (lastModifiedHeader != null || etagHeader != null) {
-					ComplexContent cacheInput = Structure.cast(input, cacheService.getServiceInterface().getInputDefinition());
-					Date lastModified = lastModifiedHeader == null ? new Date() : HTTPUtils.parseDate(lastModifiedHeader.getValue());
-					if (lastModifiedHeader != null) {
-						cacheInput.set("cache/lastModified", lastModified);
-					}
-					if (etagHeader != null) {
-						cacheInput.set("cache/etag", etagHeader.getValue());
-					}
-					ServiceRuntime runtime = new ServiceRuntime(cacheService, webApplication.getRepository().newExecutionContext(token));
-					// we set the service context to the web application, rest services can be mounted in multiple applications
-					ServiceUtils.setServiceContext(runtime, webApplication.getId());
-					ComplexContent cacheOutput = runtime.run(cacheInput);
-					Boolean hasChanged = (Boolean) cacheOutput.get("hasChanged");
-					// for GET requests: unless we explicitly state that it has changed, we assume it hasn't
-					if (isGet && (hasChanged == null || !hasChanged)) {
-						List<Header> headers = new ArrayList<Header>();
-						// let's see if we explicitly set an expiration time (in seconds)
-						Integer maxAge = (Integer) cacheOutput.get("maxAge");
-						if (maxAge != null && maxAge >= 0) {
-							headers.add(new MimeHeader("Expires", HTTPUtils.formatDate(new Date(lastModified.getTime() + (1000l * maxAge)))));
-						}
+					// having a cache service trumps the use server setting
+					if (cacheService != null) {
+						ComplexContent cacheInput = Structure.cast(input, cacheService.getServiceInterface().getInputDefinition());
+						Date lastModified = lastModifiedHeader == null ? new Date() : HTTPUtils.parseDate(lastModifiedHeader.getValue());
 						if (lastModifiedHeader != null) {
-							headers.add(new MimeHeader("Last-Modified", lastModifiedHeader.getValue()));
+							cacheInput.set("clientCache/lastModified", lastModified);
 						}
 						if (etagHeader != null) {
-							headers.add(new MimeHeader("ETag", etagHeader.getValue()));
+							cacheInput.set("clientCache/etag", etagHeader.getValue());
 						}
-						headers.add(new MimeHeader("Content-Length", "0"));
-						return new DefaultHTTPResponse(request, 304, HTTPCodes.getMessage(304), new PlainMimeEmptyPart(null,
-							headers.toArray(new Header[headers.size()])
-						));
+						
+						// check if we have a cache for the service
+						Cache serviceCache = newExecutionContext.getServiceContext().getCacheProvider().get(((DefinedService) service).getId());
+						if (serviceCache instanceof ExplorableCache) {
+							CacheEntry entry = ((ExplorableCache) serviceCache).getEntry(input);
+							if (entry != null) {
+								Date serverModified = entry.getLastModified();
+								// the http headers do not allow for ms precision, so strip the ms from the date to get a comparable date
+								serverModified = new Date(serverModified.getTime() - (serverModified.getTime() % 1000));
+								cacheInput.set("serverCache/lastModified", serverModified);
+							}
+						}
+						if (serviceCache instanceof CacheWithHash) {
+							cacheInput.set("serverCache/hash", ((CacheWithHash) serviceCache).hash(input));
+						}
+						
+						ServiceRuntime runtime = new ServiceRuntime(cacheService, webApplication.getRepository().newExecutionContext(token));
+						// we set the service context to the web application, rest services can be mounted in multiple applications
+						ServiceUtils.setServiceContext(runtime, webApplication.getId());
+						ComplexContent cacheOutput = runtime.run(cacheInput);
+						Boolean hasChanged = (Boolean) cacheOutput.get("hasChanged");
+						// for GET requests: unless we explicitly state that it has changed, we assume it hasn't
+						if (isGet && (hasChanged == null || !hasChanged)) {
+							List<Header> headers = new ArrayList<Header>();
+							// let's see if we explicitly set an expiration time (in seconds)
+							Integer maxAge = (Integer) cacheOutput.get("maxAge");
+							if (maxAge != null && maxAge >= 0) {
+								headers.add(new MimeHeader("Expires", HTTPUtils.formatDate(new Date(lastModified.getTime() + (1000l * maxAge)))));
+							}
+							if (lastModifiedHeader != null) {
+								headers.add(new MimeHeader("Last-Modified", lastModifiedHeader.getValue()));
+							}
+							if (etagHeader != null) {
+								headers.add(new MimeHeader("ETag", etagHeader.getValue()));
+							}
+							headers.add(new MimeHeader("Content-Length", "0"));
+							return new DefaultHTTPResponse(request, 304, HTTPCodes.getMessage(304), new PlainMimeEmptyPart(null,
+								headers.toArray(new Header[headers.size()])
+							));
+						}
+						// if it is not a GET request and the resource has changed, we block the request
+						else if (!isGet && hasChanged != null && hasChanged) {
+							List<Header> headers = new ArrayList<Header>();
+							headers.add(new MimeHeader("Content-Length", "0"));
+							return new DefaultHTTPResponse(request, 412, HTTPCodes.getMessage(412), new PlainMimeEmptyPart(null,
+								headers.toArray(new Header[headers.size()])
+							));
+						}
 					}
-					// if it is not a GET request and the resource has changed, we block the request
-					else if (!isGet && hasChanged != null && hasChanged) {
+					// automatic server caching should only work on a GET service?
+					else if (isGet) {
+						Date lastModified = lastModifiedHeader == null ? new Date() : HTTPUtils.parseDate(lastModifiedHeader.getValue());
+						Cache serviceCache = newExecutionContext.getServiceContext().getCacheProvider().get(((DefinedService) service).getId());
+						// there has to be _some_ cache
+						Boolean hasChanged = null;
+						if (lastModified != null) {
+							CacheEntry entry = ((ExplorableCache) serviceCache).getEntry(input);
+							if (entry != null) {
+								Date serverModified = entry.getLastModified();
+								serverModified = new Date(serverModified.getTime() - (serverModified.getTime() % 1000));
+								hasChanged = lastModified.before(serverModified);
+							}
+						}
+						String etag = etagHeader == null ? null : etagHeader.getValue();
+						if (etag != null && (hasChanged == null || !hasChanged)) {
+							if (serviceCache instanceof CacheWithHash) {
+								hasChanged = !etag.equals(((CacheWithHash) serviceCache).hash(input));
+							}
+						}
+						// if it hasn't changed, send back a response to that effect
+						if (hasChanged != null && !hasChanged) {
+							List<Header> headers = new ArrayList<Header>();
+							if (lastModifiedHeader != null) {
+								headers.add(new MimeHeader("Last-Modified", lastModifiedHeader.getValue()));
+							}
+							if (etagHeader != null) {
+								headers.add(new MimeHeader("ETag", etagHeader.getValue()));
+							}
+							headers.add(new MimeHeader("Content-Length", "0"));
+							return new DefaultHTTPResponse(request, 304, HTTPCodes.getMessage(304), new PlainMimeEmptyPart(null,
+								headers.toArray(new Header[headers.size()])
+							));
+						}
+					}
+					else {
 						List<Header> headers = new ArrayList<Header>();
 						headers.add(new MimeHeader("Content-Length", "0"));
 						return new DefaultHTTPResponse(request, 412, HTTPCodes.getMessage(412), new PlainMimeEmptyPart(null,
@@ -560,7 +634,7 @@ public class RESTFragmentListener implements EventHandler<HTTPRequest, HTTPRespo
 				return HTTPUtils.newEmptyResponse(request);
 			}
 			else {
-				ServiceRuntime runtime = new ServiceRuntime(service, webApplication.getRepository().newExecutionContext(token));
+				ServiceRuntime runtime = new ServiceRuntime(service, newExecutionContext);
 				// we set the service context to the web application, rest services can be mounted in multiple applications
 				ServiceUtils.setServiceContext(runtime, webApplication.getId());
 				ComplexContent output = runtime.run(input);
@@ -580,16 +654,39 @@ public class RESTFragmentListener implements EventHandler<HTTPRequest, HTTPRespo
 						}
 					}
 				}
-				if (output != null && output.get("cache") != null) {
-					Date lastModified = (Date) output.get("cache/lastModified");
+				Date lastModified = output == null ? null : (Date) output.get("cache/lastModified");
+				String etag = output == null ? null : (String) output.get("cache/etag");
+
+				// if we want to use the server cache settings, try to get them for values you did not explicitly fill in
+				if (webArtifact.getConfig().isUseServerCache()) {
+					// check if we have a cache for the service
+					Cache serviceCache = newExecutionContext.getServiceContext().getCacheProvider().get(((DefinedService) service).getId());
+					if (lastModified == null) {
+						if (serviceCache instanceof ExplorableCache) {
+							CacheEntry entry = ((ExplorableCache) serviceCache).getEntry(input);
+							if (entry != null) {
+								lastModified = entry.getLastModified();
+								// see above comment for ms precision in http headers
+								lastModified = new Date(lastModified.getTime() - (lastModified.getTime() % 1000));
+							}
+						}
+					}
+					if (etag == null) {
+						if (serviceCache instanceof CacheWithHash) {
+							etag = ((CacheWithHash) serviceCache).hash(input);
+						}
+					}
+				}
+				if (output != null && (lastModified != null || etag != null)) {
 					if (lastModified != null) {
 						headers.add(new MimeHeader("Last-Modified", HTTPUtils.formatDate(lastModified)));
 					}
-					String etag = (String) output.get("cache/etag");
 					if (etag != null) {
 						headers.add(new MimeHeader("ETag", etag));
 					}
-					Boolean mustRevalidate = (Boolean) output.get("cache/mustRevalidate");
+					// if you don't have explicit control of caching but are using server cache, force the client to revalidate
+					// if you want more control over the caching, add the caching component
+					Boolean mustRevalidate = !webArtifact.getConfig().isCache() && webArtifact.getConfig().isUseServerCache() ? Boolean.valueOf(true) : (Boolean) output.get("cache/mustRevalidate");
 					if (mustRevalidate != null && mustRevalidate) {
 						headers.add(new MimeHeader("Cache-Control", "no-cache, must-revalidate"));
 					}
@@ -639,7 +736,18 @@ public class RESTFragmentListener implements EventHandler<HTTPRequest, HTTPRespo
 				}
 				// if there is no content to respond with, just send back an empty response
 				if (output == null || output.get("content") == null) {
-					return HTTPUtils.newEmptyResponse(request, headers.toArray(new Header[headers.size()]));
+					// if there is structurally no output, return a 204
+					if (webArtifact.getConfig().getOutput() == null && (webArtifact.getConfig().getOutputAsStream() == null || !webArtifact.getConfig().getOutputAsStream())) {
+						return HTTPUtils.newEmptyResponse(request, headers.toArray(new Header[headers.size()]));
+					}
+					// if there is by happenstance no output, return a 200
+					else {
+						List<Header> allHeaders = new ArrayList<Header>();
+						allHeaders.add(new MimeHeader("Content-Length", "0"));
+						return new DefaultHTTPResponse(request, 200, "OK", new PlainMimeEmptyPart(null,
+							allHeaders.toArray(new Header[0])
+						));
+					}
 				}
 				else if (output.get("content") instanceof InputStream) {
 					// no size given, set chunked
@@ -709,36 +817,51 @@ public class RESTFragmentListener implements EventHandler<HTTPRequest, HTTPRespo
 			}
 		}
 		catch (FormatException e) {
-			report(request, e, token);
-			throw new HTTPException(500, "Error while executing: " + service.getId(), e);
+			HTTPException httpException = new HTTPException(500, "Error while executing: " + service.getId(), e, token);
+			httpException.getContext().addAll(Arrays.asList(webApplication.getId(), service.getId()));
+			httpException.setDevice(device);
+			throw httpException;
 		}
 		catch (IOException e) {
-			report(request, e, token);
-			throw new HTTPException(500, "Error while executing: " + service.getId(), e);
+			HTTPException httpException = new HTTPException(500, "Error while executing: " + service.getId(), e, token);
+			httpException.getContext().addAll(Arrays.asList(webApplication.getId(), service.getId()));
+			httpException.setDevice(device);
+			throw httpException;
 		}
 		catch (ServiceException e) {
+			HTTPException httpException;
 			if (ServiceRuntime.NO_AUTHORIZATION.equals(e.getCode())) {
-				throw new HTTPException(403, e);
+				httpException = new HTTPException(403, e, token);
 			}
 			else if (ServiceRuntime.NO_AUTHENTICATION.equals(e.getCode())) {
-				throw new HTTPException(401, e);
+				httpException = new HTTPException(401, e, token);
 			}
 			// this is the code thrown by the flow service for validation errors
 			else if ("VM-4".equals(e.getCode())) {
-				throw new HTTPException(400, e);
+				httpException = new HTTPException(400, e, token);
 			}
 			else {
-				report(request, e, token);
-				throw new HTTPException(500, "Error while executing: " + service.getId(), e);
+				httpException = new HTTPException(500, "Error while executing: " + service.getId(), e, token);
 			}
+			httpException.getContext().addAll(Arrays.asList(webApplication.getId(), service.getId()));
+			httpException.setDevice(device);
+			throw httpException;
 		}
 		catch (HTTPException e) {
-			report(request, e, token);
+			if (e.getToken() == null) {
+				e.setToken(token);
+			}
+			if (e.getDevice() == null) {
+				e.setDevice(device);
+			}
+			e.getContext().addAll(Arrays.asList(webApplication.getId(), service.getId()));
 			throw e;
 		}
 		catch (Exception e) {
-			report(request, e, token);
-			throw new HTTPException(500, "Error while executing: " + service.getId(), e);
+			HTTPException httpException = new HTTPException(500, "Error while executing: " + service.getId(), e, token);
+			httpException.getContext().addAll(Arrays.asList(webApplication.getId(), service.getId()));
+			httpException.setDevice(device);
+			throw httpException;
 		}
 		finally {
 			ServiceRuntime.setGlobalContext(null);

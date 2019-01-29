@@ -45,11 +45,18 @@ public class VMCacheService extends SimpleVMServiceDefinition {
 				input = new Structure();
 				input.setName("input");
 				input.setSuperType(iface.getInputDefinition());
-				Structure cache = new Structure();
-				cache.setName("cache");
-				cache.add(new SimpleElementImpl<Date>("lastModified", SimpleTypeWrapperFactory.getInstance().getWrapper().wrap(Date.class), cache, new ValueImpl<Integer>(MinOccursProperty.getInstance(), 0)));
-				cache.add(new SimpleElementImpl<String>("etag", SimpleTypeWrapperFactory.getInstance().getWrapper().wrap(String.class), cache, new ValueImpl<Integer>(MinOccursProperty.getInstance(), 0)));
-				input.add(new ComplexElementImpl("cache", cache, input));
+				Structure clientCache = new Structure();
+				clientCache.setName("clientCache");
+				clientCache.add(new SimpleElementImpl<Date>("lastModified", SimpleTypeWrapperFactory.getInstance().getWrapper().wrap(Date.class), clientCache, new ValueImpl<Integer>(MinOccursProperty.getInstance(), 0)));
+				clientCache.add(new SimpleElementImpl<String>("etag", SimpleTypeWrapperFactory.getInstance().getWrapper().wrap(String.class), clientCache, new ValueImpl<Integer>(MinOccursProperty.getInstance(), 0)));
+				input.add(new ComplexElementImpl("clientCache", clientCache, input));
+				
+				Structure serverCache = new Structure();
+				serverCache.setName("serverCache");
+				serverCache.add(new SimpleElementImpl<Date>("lastModified", SimpleTypeWrapperFactory.getInstance().getWrapper().wrap(Date.class), serverCache, new ValueImpl<Integer>(MinOccursProperty.getInstance(), 0)));
+				serverCache.add(new SimpleElementImpl<String>("hash", SimpleTypeWrapperFactory.getInstance().getWrapper().wrap(String.class), serverCache, new ValueImpl<Integer>(MinOccursProperty.getInstance(), 0)));
+				// could be that there is no server cache or it is not inspectable enough, so everything is optional
+				input.add(new ComplexElementImpl("serverCache", serverCache, input, new ValueImpl<Integer>(MinOccursProperty.getInstance(), 0)));
 			}
 			return input;
 		}
