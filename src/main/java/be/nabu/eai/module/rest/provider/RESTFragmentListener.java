@@ -56,6 +56,7 @@ import be.nabu.libs.http.api.server.Session;
 import be.nabu.libs.http.core.DefaultHTTPResponse;
 import be.nabu.libs.http.core.HTTPFormatter;
 import be.nabu.libs.http.core.HTTPUtils;
+import be.nabu.libs.http.core.ServerHeader;
 import be.nabu.libs.http.glue.GlueListener;
 import be.nabu.libs.http.glue.GlueListener.PathAnalysis;
 import be.nabu.libs.http.glue.impl.ResponseMethods;
@@ -319,8 +320,26 @@ public class RESTFragmentListener implements EventHandler<HTTPRequest, HTTPRespo
 			
 			// check rate limiting (if any)
 			RateLimiter rateLimiter = webApplication.getRateLimiter();
+			SourceImpl source = new SourceImpl(PipelineUtils.getPipeline().getSourceContext());
+			// if we are being proxied, get the "actual" data
+			if (request.getContent() != null && webApplication.getConfig().getVirtualHost().getConfig().getServer().getConfig().isProxied()) {
+				Header header = MimeUtils.getHeader(ServerHeader.REMOTE_USER.getName(), request.getContent().getHeaders());
+				if (header != null && header.getValue() != null) {
+					source.setRemoteIp(header.getValue());
+					source.setRemoteHost(header.getValue());
+				}
+				header = MimeUtils.getHeader(ServerHeader.REMOTE_PORT.getName(), request.getContent().getHeaders());
+				if (header != null && header.getValue() != null) {
+					source.setRemotePort(Integer.parseInt(header.getValue()));
+				}
+				header = MimeUtils.getHeader(ServerHeader.LOCAL_PORT.getName(), request.getContent().getHeaders());
+				if (header != null && header.getValue() != null) {
+					source.setLocalPort(Integer.parseInt(header.getValue()));
+				}
+			}
+			
 			if (rateLimiter != null) {
-				HTTPResponse response = rateLimiter.handle(webApplication, request, new SourceImpl(PipelineUtils.getPipeline().getSourceContext()), token, device, service.getId(), null);
+				HTTPResponse response = rateLimiter.handle(webApplication, request, source, token, device, service.getId(), null);
 				if (response != null) {
 					return response;
 				}
@@ -336,7 +355,7 @@ public class RESTFragmentListener implements EventHandler<HTTPRequest, HTTPRespo
 				input.set("request", request);
 			}
 			if (input.getType().get("source") != null) {
-				input.set("source", new SourceImpl(PipelineUtils.getPipeline().getSourceContext()));
+				input.set("source", source);
 			}
 			if (input.getType().get("configuration") != null) {
 				input.set("configuration", configuration);
