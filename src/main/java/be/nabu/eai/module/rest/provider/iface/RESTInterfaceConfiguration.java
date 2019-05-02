@@ -17,7 +17,7 @@ import be.nabu.eai.repository.jaxb.ArtifactXMLAdapter;
 import be.nabu.libs.types.api.DefinedType;
 
 @XmlRootElement(name = "restInterface")
-@XmlType(propOrder = { "method", "path", "queryParameters", "cookieParameters", "sessionParameters", "headerParameters", "responseHeaders", "roles", "permissionContext", "permissionAction", "preferredResponseType", "asynchronous", "inputAsStream", "outputAsStream", "input", "output", "sanitizeInput", "acceptedLanguages", "configurationType", "device", "lenient", "namingConvention", "webApplicationId", "language", "allowFormBinding", "caseInsensitive", "cache", "allowCookiesWithoutReferer", "allowCookiesWithExternalReferer", "request", "allowHeaderAsQueryParameter", "useServerCache", "source" })
+@XmlType(propOrder = { "method", "path", "queryParameters", "cookieParameters", "sessionParameters", "headerParameters", "responseHeaders", "roles", "permissionContext", "permissionAction", "preferredResponseType", "asynchronous", "inputAsStream", "outputAsStream", "input", "output", "sanitizeInput", "acceptedLanguages", "configurationType", "device", "lenient", "namingConvention", "webApplicationId", "language", "allowFormBinding", "caseInsensitive", "cache", "allowCookiesWithoutReferer", "allowCookiesWithExternalReferer", "request", "allowHeaderAsQueryParameter", "useServerCache", "source", "allowRaw", "domain" })
 public class RESTInterfaceConfiguration {
 
 	private DefinedType input, output;
@@ -32,13 +32,13 @@ public class RESTInterfaceConfiguration {
 	private Boolean acceptedLanguages;
 	private Boolean device;
 	private boolean language;
-	private boolean lenient;
+	private boolean lenient, allowRaw;
 	private boolean webApplicationId;
 	private NamingConvention namingConvention;
 	private boolean allowFormBinding;
 	private boolean caseInsensitive;
 	private boolean cache, useServerCache;
-	private boolean request, source;
+	private boolean request, source, domain;
 	// allow cookies to be used if there is no referer
 	// specifically IE does not send a referer when window.open is used
 	// this can potentially be an issue when downloading files via a REST service
@@ -289,4 +289,22 @@ public class RESTInterfaceConfiguration {
 		this.source = source;
 	}
 	
+	@Advanced
+	@Comment(title = "Whether the JSON should be encoded or allow for raw unencoded content")
+	public boolean isAllowRaw() {
+		return allowRaw;
+	}
+	public void setAllowRaw(boolean allowRaw) {
+		this.allowRaw = allowRaw;
+	}
+	
+	@Advanced
+	@Comment(title = "Inject the domain the request was done on, this can be useful for differentiating logic depending on the source domain")
+	public boolean isDomain() {
+		return domain;
+	}
+	public void setDomain(boolean domain) {
+		this.domain = domain;
+	}
+
 }

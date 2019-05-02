@@ -218,7 +218,7 @@ public class RESTFragmentListener implements EventHandler<HTTPRequest, HTTPRespo
 			// text/plain is allowed in HTML5 (https://developer.mozilla.org/en-US/docs/Web/HTML/Element/form)
 			if (contentType != null && (WebResponseType.FORM_ENCODED.getMimeType().equalsIgnoreCase(contentType) || "multipart/form-data".equalsIgnoreCase(contentType)) || "text/plain".equalsIgnoreCase(contentType)) {
 				if (!webArtifact.getConfig().isAllowFormBinding()) {
-					throw new HTTPException(415, "Form binding not allowed: " + contentType);
+					throw new HTTPException(415, "Form binding not allowed", "Form binding not allowed: " + contentType, token);
 				}
 			}
 			
@@ -298,7 +298,7 @@ public class RESTFragmentListener implements EventHandler<HTTPRequest, HTTPRespo
 			}
 			
 			if (deviceValidator != null && !deviceValidator.isAllowed(token, device)) {
-				throw new HTTPException(token == null ? 401 : 403, "User '" + (token == null ? Authenticator.ANONYMOUS : token.getName()) + "' is using an unauthorized device '" + device.getDeviceId() + "' for service: " + service.getId());
+				throw new HTTPException(token == null ? 401 : 403, "User is using an unauthorized device", "User '" + (token == null ? Authenticator.ANONYMOUS : token.getName()) + "' is using an unauthorized device '" + device.getDeviceId() + "' for service: " + service.getId(), token);
 			}
 
 			ServiceRuntime.getGlobalContext().put("device", device);
@@ -314,13 +314,13 @@ public class RESTFragmentListener implements EventHandler<HTTPRequest, HTTPRespo
 					}
 				}
 				if (!hasRole) {
-					throw new HTTPException(token == null ? 401 : 403, "User '" + (token == null ? Authenticator.ANONYMOUS : token.getName()) + "' does not have one of the allowed roles '" + webArtifact.getConfiguration().getRoles() + "' for service: " + service.getId());
+					throw new HTTPException(token == null ? 401 : 403, "User does not have one of the allowed roles", "User '" + (token == null ? Authenticator.ANONYMOUS : token.getName()) + "' does not have one of the allowed roles '" + webArtifact.getConfiguration().getRoles() + "' for service: " + service.getId(), token);
 				}
 			}
 			
 			// check rate limiting (if any)
 			RateLimiter rateLimiter = webApplication.getRateLimiter();
-			SourceImpl source = new SourceImpl(PipelineUtils.getPipeline().getSourceContext());
+			SourceImpl source = PipelineUtils.getPipeline() == null ? new SourceImpl() : new SourceImpl(PipelineUtils.getPipeline().getSourceContext());
 			// if we are being proxied, get the "actual" data
 			if (request.getContent() != null && webApplication.getConfig().getVirtualHost().getConfig().getServer().getConfig().isProxied()) {
 				Header header = MimeUtils.getHeader(ServerHeader.REMOTE_USER.getName(), request.getContent().getHeaders());
@@ -351,6 +351,9 @@ public class RESTFragmentListener implements EventHandler<HTTPRequest, HTTPRespo
 			if (input.getType().get("webApplicationId") != null) {
 				input.set("webApplicationId", webApplication.getId());
 			}
+			if (input.getType().get("domain") != null) {
+				input.set("domain", uri.getHost());
+			}
 			if (input.getType().get("request") != null) {
 				input.set("request", request);
 			}
@@ -370,8 +373,7 @@ public class RESTFragmentListener implements EventHandler<HTTPRequest, HTTPRespo
 						input.set("query/" + element.getName(), sanitize(decollect(queryProperties.get(name), element), sanitizeInput));
 					}
 					catch (Exception e) {
-						logger.error("Could not set query value: " + name + " = " + queryProperties.get(name), e);
-						throw new HTTPException(500, e);
+						throw new HTTPException(500, "Could not set query parameter", "Could not set query parameter: " + name + " = " + queryProperties.get(name), e, token);
 					}					
 				}
 			}
@@ -392,8 +394,7 @@ public class RESTFragmentListener implements EventHandler<HTTPRequest, HTTPRespo
 							}
 						}
 						catch (Exception e) {
-							logger.error("Could not set header value: " + element.getName() + " = " + Arrays.asList(headers), e);
-							throw new HTTPException(500, e);
+							throw new HTTPException(500, "Could not set header parameter", "Could not set header parameter: " + element.getName() + " = " + Arrays.asList(headers), e, token);
 						}
 					}
 				}
@@ -416,8 +417,7 @@ public class RESTFragmentListener implements EventHandler<HTTPRequest, HTTPRespo
 					input.set("path/" + key, sanitize(analyzed.get(key), sanitizeInput));
 				}
 				catch (Exception e) {
-					logger.error("Could not set path value: " + key + " = " + analyzed.get(key), e);
-					throw new HTTPException(500, e);
+					throw new HTTPException(500, "Could not set path parameters", "Could not set path parameter: " + key + " = " + analyzed.get(key), e, token);
 				}
 			}
 			if (input.getType().get("cookie") != null) {
@@ -426,8 +426,7 @@ public class RESTFragmentListener implements EventHandler<HTTPRequest, HTTPRespo
 						input.set("cookie/" + element.getName(), sanitize(cookies.get(element.getName()), sanitizeInput));
 					}
 					catch (Exception e) {
-						logger.error("Could not set cookie value: " + element.getName() + " = " + cookies.get(element.getName()), e);
-						throw new HTTPException(500, e);
+						throw new HTTPException(500, "Could not set cookie value", "Could not set cookie value: " + element.getName() + " = " + cookies.get(element.getName()), e, token);
 					}
 				}
 			}
@@ -451,7 +450,7 @@ public class RESTFragmentListener implements EventHandler<HTTPRequest, HTTPRespo
 					else {
 						UnmarshallableBinding binding;
 						if (contentType == null) {
-							throw new HTTPException(415, "Unsupported request content type: " + contentType);
+							throw new HTTPException(415, "Unsupported request content type", "Unsupported request content type: " + contentType, token);
 						}
 						else if (contentType.equalsIgnoreCase("application/xml") || contentType.equalsIgnoreCase("text/xml")) {
 							binding = new XMLBinding((ComplexType) input.getType().get("content").getType(), charset);
@@ -472,23 +471,23 @@ public class RESTFragmentListener implements EventHandler<HTTPRequest, HTTPRespo
 								binding = new FormBinding((ComplexType) input.getType().get("content").getType(), charset);
 							}
 							else {
-								throw new HTTPException(415, "Form binding not allowed for this rest service");
+								throw new HTTPException(415, "Form binding not allowed for rest service", "Form binding not allowed for rest service: " + webArtifact.getId(), token);
 							}
 						}
 						else {
 							binding = getBindingProvider().getUnmarshallableBinding((ComplexType) input.getType().get("content").getType(), charset, request.getContent().getHeaders());
 							if (binding == null) {
-								throw new HTTPException(415, "Unsupported request content type: " + contentType);
+								throw new HTTPException(415, "Unsupported request content type", "Unsupported request content type: " + contentType, token);
 							}
 						}
 						try {
 							input.set("content", sanitize(binding.unmarshal(IOUtils.toInputStream(readable), new Window[0]), sanitizeInput));
 						}
 						catch (IOException e) {
-							throw new HTTPException(500, e);
+							throw new HTTPException(500, "Unexpected I/O exception", e, token);
 						}
 						catch (ParseException e) {
-							throw new HTTPException(400, "Message can not be parsed using specification: " + input.getType().get("content").getType(),e);
+							throw new HTTPException(400, "Message can not be parsed", "Message can not be parsed using specification: " + input.getType().get("content").getType(), e, token);
 						}
 					}
 				}
@@ -520,7 +519,7 @@ public class RESTFragmentListener implements EventHandler<HTTPRequest, HTTPRespo
 					}
 				}
 				if (action != null && !permissionHandler.hasPermission(token, context, action)) {
-					throw new HTTPException(token == null ? 401 : 403, "User '" + (token == null ? Authenticator.ANONYMOUS : token.getName()) + "' does not have permission to '" + request.getMethod().toLowerCase() + "' on '" + path + "' with service: " + service.getId());
+					throw new HTTPException(token == null ? 401 : 403, "User does not have permission to execute the rest service", "User '" + (token == null ? Authenticator.ANONYMOUS : token.getName()) + "' does not have permission to '" + request.getMethod().toLowerCase() + "' on '" + path + "' with service: " + service.getId(), token);
 				}
 			}
 			
@@ -808,6 +807,9 @@ public class RESTFragmentListener implements EventHandler<HTTPRequest, HTTPRespo
 						}
 						else if (contentType.equalsIgnoreCase(WebResponseType.JSON.getMimeType())) {
 							binding = new JSONBinding(output.getType(), charset);
+							if (webArtifact.getConfig().isAllowRaw()) {
+								((JSONBinding) binding).setAllowRaw(true);
+							}
 						}
 						else if (contentType.equalsIgnoreCase(WebResponseType.FORM_ENCODED.getMimeType())) {
 							binding = new FormBinding(output.getType(), charset);
@@ -836,13 +838,13 @@ public class RESTFragmentListener implements EventHandler<HTTPRequest, HTTPRespo
 			}
 		}
 		catch (FormatException e) {
-			HTTPException httpException = new HTTPException(500, "Error while executing: " + service.getId(), e, token);
+			HTTPException httpException = new HTTPException(500, "Could not execute service", "Could not execute service: " + service.getId(), e, token);
 			httpException.getContext().addAll(Arrays.asList(webApplication.getId(), service.getId()));
 			httpException.setDevice(device);
 			throw httpException;
 		}
 		catch (IOException e) {
-			HTTPException httpException = new HTTPException(500, "Error while executing: " + service.getId(), e, token);
+			HTTPException httpException = new HTTPException(500, "Could not execute service", "Could not execute service: " + service.getId(), e, token);
 			httpException.getContext().addAll(Arrays.asList(webApplication.getId(), service.getId()));
 			httpException.setDevice(device);
 			throw httpException;
@@ -850,17 +852,17 @@ public class RESTFragmentListener implements EventHandler<HTTPRequest, HTTPRespo
 		catch (ServiceException e) {
 			HTTPException httpException;
 			if (ServiceRuntime.NO_AUTHORIZATION.equals(e.getCode())) {
-				httpException = new HTTPException(403, e, token);
+				httpException = new HTTPException(403, "User does not have permission to execute the rest service", "User '" + (token == null ? Authenticator.ANONYMOUS : token.getName()) + "' does not have permission to '" + request.getMethod().toLowerCase() + "' with service: " + service.getId(), e, token);
 			}
 			else if (ServiceRuntime.NO_AUTHENTICATION.equals(e.getCode())) {
-				httpException = new HTTPException(401, e, token);
+				httpException = new HTTPException(401, "User is not authenticated", e, token);
 			}
 			// this is the code thrown by the flow service for validation errors
 			else if ("VM-4".equals(e.getCode())) {
-				httpException = new HTTPException(400, e, token);
+				httpException = new HTTPException(400, "Input validation failed", e, token);
 			}
 			else {
-				httpException = new HTTPException(500, "Error while executing: " + service.getId(), e, token);
+				httpException = new HTTPException(500, "Could not execute service", "Could not execute service: " + service.getId(), e, token);
 			}
 			httpException.getContext().addAll(Arrays.asList(webApplication.getId(), service.getId()));
 			httpException.setDevice(device);
@@ -877,7 +879,7 @@ public class RESTFragmentListener implements EventHandler<HTTPRequest, HTTPRespo
 			throw e;
 		}
 		catch (Exception e) {
-			HTTPException httpException = new HTTPException(500, "Error while executing: " + service.getId(), e, token);
+			HTTPException httpException = new HTTPException(500, "Could not execute service", "Could not execute service: " + service.getId(), e, token);
 			httpException.getContext().addAll(Arrays.asList(webApplication.getId(), service.getId()));
 			httpException.setDevice(device);
 			throw httpException;
@@ -913,7 +915,7 @@ public class RESTFragmentListener implements EventHandler<HTTPRequest, HTTPRespo
 		notification.setServiceContext(webApplication.getId());
 		notification.setContext(Arrays.asList(service.getId(), webApplication.getId()));
 		notification.setType("nabu.web.rest.provider");
-		notification.setCode(e instanceof HTTPException ? ((HTTPException) e).getCode() : 0);
+		notification.setCode("HTTP-" + (e instanceof HTTPException ? ((HTTPException) e).getCode() : 0));
 		notification.setMessage("REST Request failed" + (e == null ? "" : ": " + e.getMessage()));
 		notification.setDescription(content + "\n\n" + Notification.format(e));
 		notification.setSeverity(Severity.ERROR);
