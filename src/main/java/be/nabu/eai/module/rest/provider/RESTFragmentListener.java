@@ -323,10 +323,13 @@ public class RESTFragmentListener implements EventHandler<HTTPRequest, HTTPRespo
 			SourceImpl source = PipelineUtils.getPipeline() == null ? new SourceImpl() : new SourceImpl(PipelineUtils.getPipeline().getSourceContext());
 			// if we are being proxied, get the "actual" data
 			if (request.getContent() != null && webApplication.getConfig().getVirtualHost().getConfig().getServer().getConfig().isProxied()) {
-				Header header = MimeUtils.getHeader(ServerHeader.REMOTE_USER.getName(), request.getContent().getHeaders());
+				Header header = MimeUtils.getHeader(ServerHeader.REMOTE_HOST.getName(), request.getContent().getHeaders());
+				if (header != null && header.getValue() != null) {
+					source.setRemoteHost(header.getValue());
+				}
+				header = MimeUtils.getHeader(ServerHeader.REMOTE_ADDRESS.getName(), request.getContent().getHeaders());
 				if (header != null && header.getValue() != null) {
 					source.setRemoteIp(header.getValue());
-					source.setRemoteHost(header.getValue());
 				}
 				header = MimeUtils.getHeader(ServerHeader.REMOTE_PORT.getName(), request.getContent().getHeaders());
 				if (header != null && header.getValue() != null) {
