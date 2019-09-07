@@ -122,6 +122,10 @@ public class RESTService extends BaseContainerArtifact implements WebFragment, D
 		return artifact.getId() + ":" + path;
 	}
 	
+	public RESTInterfaceArtifact getInterface() {
+		return getArtifact(RESTInterfaceArtifact.class);
+	}
+	
 	@Override
 	public void start(WebApplication artifact, String path) throws IOException {
 		String key = getKey(artifact, path);
