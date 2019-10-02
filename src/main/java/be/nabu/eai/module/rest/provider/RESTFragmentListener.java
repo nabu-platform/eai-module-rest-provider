@@ -376,7 +376,7 @@ public class RESTFragmentListener implements EventHandler<HTTPRequest, HTTPRespo
 						input.set("query/" + element.getName(), sanitize(decollect(queryProperties.get(name), element), sanitizeInput));
 					}
 					catch (Exception e) {
-						throw new HTTPException(500, "Could not set query parameter", "Could not set query parameter: " + name + " = " + queryProperties.get(name), e, token);
+						throw new HTTPException(500, "Could not set query parameter", "Could not set query parameter: " + name + " = " + queryProperties.get(name) + " for service " + service.getId(), e, token);
 					}					
 				}
 			}
