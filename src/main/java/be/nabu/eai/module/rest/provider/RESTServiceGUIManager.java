@@ -7,8 +7,10 @@ import java.util.Map;
 
 import be.nabu.eai.developer.MainController;
 import be.nabu.eai.developer.api.ContainerArtifactGUIManager;
+import be.nabu.eai.developer.managers.base.BaseArtifactGUIInstance;
 import be.nabu.eai.module.rest.provider.iface.RESTInterfaceArtifact;
 import be.nabu.eai.module.services.vm.VMServiceGUIManager;
+import be.nabu.eai.repository.api.Entry;
 import be.nabu.eai.repository.resources.RepositoryEntry;
 import be.nabu.libs.property.api.Property;
 import be.nabu.libs.property.api.Value;
@@ -53,5 +55,12 @@ public class RESTServiceGUIManager extends ContainerArtifactGUIManager<RESTServi
 	@Override
 	public String getCategory() {
 		return "Services";
+	}
+	
+	@Override
+	protected BaseArtifactGUIInstance<RESTService> newGUIInstance(Entry entry) {
+		BaseArtifactGUIInstance<RESTService> newGUIInstance = super.newGUIInstance(entry);
+		newGUIInstance.setRequiresPropertiesPane(true);
+		return newGUIInstance;
 	}
 }

@@ -243,6 +243,11 @@ public class RESTFragmentListener implements EventHandler<HTTPRequest, HTTPRespo
 						}
 					}
 				}
+				// evidently we don't care about the referer matching capabilities...
+				// in one particular case we deployed an application without a host alias, it took 2 hours to figure out why it wasn't working...
+				else {
+					refererMatch = true;
+				}
 				if (!refererMatch && webArtifact.getConfig().isAllowCookiesWithExternalReferer()) {
 					refererMatch = true;
 				}
@@ -436,6 +441,10 @@ public class RESTFragmentListener implements EventHandler<HTTPRequest, HTTPRespo
 			
 			if (input.getType().get("device") != null) {
 				input.set("device", device);
+			}
+			
+			if (input.getType().get("token") != null) {
+				input.set("token", token);
 			}
 			
 			if (input.getType().get("content") != null && request.getContent() instanceof ContentPart) {

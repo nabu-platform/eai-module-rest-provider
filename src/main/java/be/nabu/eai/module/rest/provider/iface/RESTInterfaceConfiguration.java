@@ -17,7 +17,7 @@ import be.nabu.eai.repository.jaxb.ArtifactXMLAdapter;
 import be.nabu.libs.types.api.DefinedType;
 
 @XmlRootElement(name = "restInterface")
-@XmlType(propOrder = { "method", "path", "queryParameters", "cookieParameters", "sessionParameters", "headerParameters", "responseHeaders", "roles", "permissionContext", "permissionAction", "preferredResponseType", "asynchronous", "inputAsStream", "outputAsStream", "input", "output", "sanitizeInput", "acceptedLanguages", "configurationType", "device", "lenient", "namingConvention", "webApplicationId", "language", "allowFormBinding", "caseInsensitive", "cache", "allowCookiesWithoutReferer", "allowCookiesWithExternalReferer", "request", "allowHeaderAsQueryParameter", "useServerCache", "source", "allowRaw", "domain" })
+@XmlType(propOrder = { "method", "path", "queryParameters", "cookieParameters", "sessionParameters", "headerParameters", "responseHeaders", "roles", "permissionContext", "permissionAction", "preferredResponseType", "asynchronous", "inputAsStream", "outputAsStream", "input", "output", "sanitizeInput", "acceptedLanguages", "configurationType", "device", "token", "lenient", "namingConvention", "webApplicationId", "language", "allowFormBinding", "caseInsensitive", "cache", "allowCookiesWithoutReferer", "allowCookiesWithExternalReferer", "request", "allowHeaderAsQueryParameter", "useServerCache", "source", "allowRaw", "domain" })
 public class RESTInterfaceConfiguration {
 
 	private DefinedType input, output;
@@ -30,7 +30,7 @@ public class RESTInterfaceConfiguration {
 	private Boolean inputAsStream, outputAsStream;
 	private Boolean sanitizeInput;
 	private Boolean acceptedLanguages;
-	private Boolean device;
+	private Boolean device, token;
 	private boolean language;
 	private boolean lenient, allowRaw;
 	private boolean webApplicationId;
@@ -305,6 +305,12 @@ public class RESTInterfaceConfiguration {
 	}
 	public void setDomain(boolean domain) {
 		this.domain = domain;
+	}
+	public Boolean getToken() {
+		return token;
+	}
+	public void setToken(Boolean token) {
+		this.token = token;
 	}
 
 }

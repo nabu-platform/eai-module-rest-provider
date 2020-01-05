@@ -15,6 +15,7 @@ import be.nabu.eai.module.rest.RESTUtils;
 import be.nabu.eai.repository.api.Repository;
 import be.nabu.eai.repository.artifacts.jaxb.JAXBArtifact;
 import be.nabu.libs.authentication.api.Device;
+import be.nabu.libs.authentication.api.Token;
 import be.nabu.libs.http.api.HTTPRequest;
 import be.nabu.libs.http.glue.GlueListener;
 import be.nabu.libs.property.api.Value;
@@ -218,6 +219,9 @@ public class RESTInterfaceArtifact extends JAXBArtifact<RESTInterfaceConfigurati
 			
 			if (getConfig().getDevice() != null && getConfig().getDevice()) {
 				input.add(new ComplexElementImpl("device", (ComplexType) BeanResolver.getInstance().resolve(Device.class), input, new ValueImpl<Integer>(MinOccursProperty.getInstance(), 0)));
+			}
+			if (getConfig().getToken() != null && getConfig().getToken()) {
+				input.add(new ComplexElementImpl("token", (ComplexType) BeanResolver.getInstance().resolve(Token.class), input, new ValueImpl<Integer>(MinOccursProperty.getInstance(), 0)));
 			}
 			
 			if (getConfiguration().getResponseHeaders() != null && !getConfiguration().getResponseHeaders().trim().isEmpty()) {
