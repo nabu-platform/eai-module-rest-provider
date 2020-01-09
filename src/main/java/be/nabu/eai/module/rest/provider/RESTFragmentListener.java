@@ -25,6 +25,7 @@ import be.nabu.eai.module.rest.api.BindingProvider;
 import be.nabu.eai.module.rest.provider.iface.RESTInterfaceArtifact;
 import be.nabu.eai.module.web.application.WebApplication;
 import be.nabu.eai.module.web.application.WebApplicationUtils;
+import be.nabu.eai.module.web.application.api.TemporaryAuthenticator;
 import be.nabu.eai.module.web.application.rate.RateLimiter;
 import be.nabu.eai.repository.EAIResourceRepository;
 import be.nabu.eai.repository.Notification;
@@ -308,9 +309,13 @@ public class RESTFragmentListener implements EventHandler<HTTPRequest, HTTPRespo
 
 			ServiceRuntime.getGlobalContext().put("device", device);
 			
+			TemporaryAuthenticator temporaryAuthenticator = webApplication.getTemporaryAuthenticator();
+			
 			// check role
 			RoleHandler roleHandler = webApplication.getRoleHandler();
-			if (roleHandler != null && webArtifact.getConfiguration().getRoles() != null) {
+			// if we have a temporary alias, we are pulling it from the input and we can only perform any checks after we have parsed the input
+			// in every other case (which is the vast majority of cases) it is interesting to do the role check as early as possible to save resources on parsing the input
+			if (roleHandler != null && webArtifact.getConfiguration().getRoles() != null && (webArtifact.getConfig().getTemporaryAlias() == null || temporaryAuthenticator == null)) {
 				boolean hasRole = false;
 				for (String role : webArtifact.getConfiguration().getRoles()) {
 					if (roleHandler.hasRole(token, role)) {
@@ -502,6 +507,47 @@ public class RESTFragmentListener implements EventHandler<HTTPRequest, HTTPRespo
 							throw new HTTPException(400, "Message can not be parsed", "Message can not be parsed using specification: " + input.getType().get("content").getType(), e, token);
 						}
 					}
+				}
+			}
+
+			// this allows for temporarily valid tokens like one-time use or limited in time access to e.g. a file download
+			if (webArtifact.getConfig().getTemporaryAlias() != null && temporaryAuthenticator != null) {
+				String alias = null, secret = null;
+				if (webArtifact.getConfig().getTemporaryAlias().startsWith("=")) {
+					Object result = getVariable(input, webArtifact.getConfig().getTemporaryAlias().substring(1).replaceAll("\\binput/", ""));
+					alias = result == null ? null : result.toString();
+				}
+				else {
+					alias = webArtifact.getConfig().getTemporaryAlias();
+				}
+				if (webArtifact.getConfig().getTemporarySecret().startsWith("=")) {
+					Object result = getVariable(input, webArtifact.getConfig().getTemporarySecret().substring(1).replaceAll("\\binput/", ""));
+					secret = result == null ? null : result.toString();
+				}
+				else {
+					secret = webArtifact.getConfig().getTemporarySecret();
+				}
+				// this trumps any other token
+				token = temporaryAuthenticator.authenticate(webApplication.getRealm(), alias, secret, device);
+				
+				// if we have a temporary alias, we are pulling it from the input and we can only perform any checks after we have parsed the input
+				// in every other case (which is the vast majority of cases) it is interesting to do the role check as early as possible to save resources on parsing the input
+				if (roleHandler != null && webArtifact.getConfiguration().getRoles() != null) {
+					boolean hasRole = false;
+					for (String role : webArtifact.getConfiguration().getRoles()) {
+						if (roleHandler.hasRole(token, role)) {
+							hasRole = true;
+							break;
+						}
+					}
+					if (!hasRole) {
+						throw new HTTPException(token == null ? 401 : 403, "User does not have one of the allowed roles", "User '" + (token == null ? Authenticator.ANONYMOUS : token.getName()) + "' does not have one of the allowed roles '" + webArtifact.getConfiguration().getRoles() + "' for service: " + service.getId(), token);
+					}
+				}
+
+				// update the token in the input
+				if (input.getType().get("token") != null) {
+					input.set("token", token);
 				}
 			}
 			

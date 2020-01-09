@@ -17,12 +17,13 @@ import be.nabu.eai.repository.jaxb.ArtifactXMLAdapter;
 import be.nabu.libs.types.api.DefinedType;
 
 @XmlRootElement(name = "restInterface")
-@XmlType(propOrder = { "method", "path", "queryParameters", "cookieParameters", "sessionParameters", "headerParameters", "responseHeaders", "roles", "permissionContext", "permissionAction", "preferredResponseType", "asynchronous", "inputAsStream", "outputAsStream", "input", "output", "sanitizeInput", "acceptedLanguages", "configurationType", "device", "token", "lenient", "namingConvention", "webApplicationId", "language", "allowFormBinding", "caseInsensitive", "cache", "allowCookiesWithoutReferer", "allowCookiesWithExternalReferer", "request", "allowHeaderAsQueryParameter", "useServerCache", "source", "allowRaw", "domain" })
+@XmlType(propOrder = { "method", "path", "queryParameters", "cookieParameters", "sessionParameters", "headerParameters", "responseHeaders", "roles", "permissionContext", "permissionAction", "preferredResponseType", "asynchronous", "inputAsStream", "outputAsStream", "input", "output", "sanitizeInput", "acceptedLanguages", "configurationType", "device", "token", "lenient", "namingConvention", "webApplicationId", "language", "allowFormBinding", "caseInsensitive", "cache", "allowCookiesWithoutReferer", "allowCookiesWithExternalReferer", "request", "allowHeaderAsQueryParameter", "useServerCache", "source", "allowRaw", "domain", "temporaryAlias", "temporarySecret" })
 public class RESTInterfaceConfiguration {
 
 	private DefinedType input, output;
 	private String path, queryParameters, cookieParameters, sessionParameters, headerParameters, responseHeaders;
 	private String permissionContext, permissionAction;
+	private String temporaryAlias, temporarySecret;
 	private WebMethod method;
 	private List<String> roles;
 	private Boolean asynchronous;
@@ -312,5 +313,21 @@ public class RESTInterfaceConfiguration {
 	public void setToken(Boolean token) {
 		this.token = token;
 	}
-
+	
+	@Advanced
+	public String getTemporaryAlias() {
+		return temporaryAlias;
+	}
+	public void setTemporaryAlias(String temporaryAlias) {
+		this.temporaryAlias = temporaryAlias;
+	}
+	
+	@Advanced
+	public String getTemporarySecret() {
+		return temporarySecret;
+	}
+	public void setTemporarySecret(String temporarySecret) {
+		this.temporarySecret = temporarySecret;
+	}
+	
 }
