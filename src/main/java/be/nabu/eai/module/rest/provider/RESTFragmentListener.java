@@ -122,7 +122,8 @@ public class RESTFragmentListener implements EventHandler<HTTPRequest, HTTPRespo
 		this.webArtifact = webArtifact;
 		this.service = service;
 		this.charset = charset;
-		this.allowEncoding = allowEncoding;
+		// we now handle this at a higher level
+		this.allowEncoding = allowEncoding && false;
 		this.cacheService = cacheService;
 		String path = webArtifact.getConfiguration().getPath();
 		if (path.startsWith("/")) {
