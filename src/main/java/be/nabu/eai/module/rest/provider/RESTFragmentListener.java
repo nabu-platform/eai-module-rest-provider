@@ -63,6 +63,7 @@ import be.nabu.libs.http.glue.GlueListener;
 import be.nabu.libs.http.glue.GlueListener.PathAnalysis;
 import be.nabu.libs.http.glue.impl.ResponseMethods;
 import be.nabu.libs.nio.PipelineUtils;
+import be.nabu.libs.property.ValueUtils;
 import be.nabu.libs.property.api.Value;
 import be.nabu.libs.resources.URIUtils;
 import be.nabu.libs.services.ServiceRuntime;
@@ -86,6 +87,7 @@ import be.nabu.libs.types.binding.form.FormBinding;
 import be.nabu.libs.types.binding.json.JSONBinding;
 import be.nabu.libs.types.binding.xml.XMLBinding;
 import be.nabu.libs.types.properties.CollectionFormatProperty;
+import be.nabu.libs.types.properties.MaxOccursProperty;
 import be.nabu.libs.types.structure.Structure;
 import be.nabu.libs.validator.api.ValidationMessage.Severity;
 import be.nabu.utils.io.IOUtils;
@@ -587,6 +589,8 @@ public class RESTFragmentListener implements EventHandler<HTTPRequest, HTTPRespo
 			}
 			
 			ExecutionContext newExecutionContext = webApplication.getRepository().newExecutionContext(token);
+			// play with the features
+			WebApplicationUtils.featureRich(webApplication, request, newExecutionContext);
 			
 			// if we have a cache service, let's check if it has changed
 			// if we have toggled the use of service cache, we don't need an explicit service (though it is still possible)
@@ -809,7 +813,7 @@ public class RESTFragmentListener implements EventHandler<HTTPRequest, HTTPRespo
 						// domain
 						null, 
 						// secure TODO?
-						false,
+						webApplication.isSecure(),
 						// http only
 						true
 					);
@@ -850,7 +854,20 @@ public class RESTFragmentListener implements EventHandler<HTTPRequest, HTTPRespo
 				}
 				else {
 					Object object = output.get("content");
-					output = object instanceof ComplexContent ? (ComplexContent) object : ComplexContentWrapperFactory.getInstance().getWrapper().wrap(object);
+					Integer maxOccurs = ValueUtils.getValue(MaxOccursProperty.getInstance(), webArtifact.getOutputDefinition().get("content").getProperties());
+					boolean isRootList = maxOccurs != null && (maxOccurs >= 2 || maxOccurs == 0);
+					// if the output is an array 
+					if (isRootList) {
+						Structure arrayWrapper = new Structure();
+						arrayWrapper.setName("listWrapper");
+						arrayWrapper.add(TypeBaseUtils.clone(webArtifact.getOutputDefinition().get("content"), arrayWrapper));
+						output = arrayWrapper.newInstance();
+						output.set("content", object);
+						System.out.println("doing the tricky thing: " + object);
+					}
+					else {
+						output = object instanceof ComplexContent ? (ComplexContent) object : ComplexContentWrapperFactory.getInstance().getWrapper().wrap(object);
+					}
 					MarshallableBinding binding = request.getContent() == null ? null : getBindingProvider().getMarshallableBinding(output.getType(), charset, request.getContent().getHeaders());
 					if (binding != null) {
 						contentType = getBindingProvider().getContentType(binding);
@@ -866,6 +883,7 @@ public class RESTFragmentListener implements EventHandler<HTTPRequest, HTTPRespo
 						}
 						contentType = acceptedContentTypes.isEmpty() ? preferredResponseType.getMimeType() : acceptedContentTypes.get(0);
 						if (contentType.equalsIgnoreCase(WebResponseType.XML.getMimeType())) {
+							// XML can't handle multiple roots, so we leave the wrapper in place in case we have a root array
 							binding = new XMLBinding(output.getType(), charset);
 						}
 						else if (contentType.equalsIgnoreCase(WebResponseType.JSON.getMimeType())) {
@@ -873,6 +891,8 @@ public class RESTFragmentListener implements EventHandler<HTTPRequest, HTTPRespo
 							if (webArtifact.getConfig().isAllowRaw()) {
 								((JSONBinding) binding).setAllowRaw(true);
 							}
+							// JSON can handle root arrays, but we only want it explicitly in this scenario
+							((JSONBinding) binding).setIgnoreRootIfArrayWrapper(isRootList);
 						}
 						else if (contentType.equalsIgnoreCase(WebResponseType.FORM_ENCODED.getMimeType())) {
 							binding = new FormBinding(output.getType(), charset);
