@@ -17,12 +17,16 @@ import be.nabu.eai.repository.jaxb.ArtifactXMLAdapter;
 import be.nabu.libs.types.api.DefinedType;
 
 @XmlRootElement(name = "restInterface")
-@XmlType(propOrder = { "method", "path", "queryParameters", "cookieParameters", "sessionParameters", "headerParameters", "responseHeaders", "roles", "permissionContext", "permissionAction", "preferredResponseType", "asynchronous", "inputAsStream", "outputAsStream", "input", "output", "sanitizeInput", "acceptedLanguages", "configurationType", "device", "token", "lenient", "namingConvention", "webApplicationId", "language", "allowFormBinding", "caseInsensitive", "cache", "allowCookiesWithoutReferer", "allowCookiesWithExternalReferer", "request", "allowHeaderAsQueryParameter", "useServerCache", "source", "allowRaw", "domain", "temporaryAlias", "temporarySecret" })
+@XmlType(propOrder = { "method", "path", "queryParameters", "cookieParameters", "sessionParameters", "headerParameters", "responseHeaders", "roles", "permissionContext", "permissionAction", "preferredResponseType",
+		"asynchronous", "inputAsStream", "outputAsStream", "input", "output", "sanitizeInput", "acceptedLanguages", "configurationType", "device", "token", "lenient", "namingConvention", "webApplicationId", 
+		"language", "allowFormBinding", "caseInsensitive", "cache", "allowCookiesWithoutReferer", "allowCookiesWithExternalReferer", "request", "allowHeaderAsQueryParameter", "useServerCache", "source", 
+		"allowRaw", "domain", "temporaryAlias", "temporarySecret", "rateLimitContext", "rateLimitAction" })
 public class RESTInterfaceConfiguration {
 
 	private DefinedType input, output;
 	private String path, queryParameters, cookieParameters, sessionParameters, headerParameters, responseHeaders;
 	private String permissionContext, permissionAction;
+	private String rateLimitContext, rateLimitAction;
 	private String temporaryAlias, temporarySecret;
 	private WebMethod method;
 	private List<String> roles;
@@ -330,4 +334,22 @@ public class RESTInterfaceConfiguration {
 		this.temporarySecret = temporarySecret;
 	}
 	
+	@Comment(title = "The context to use for rate limiting, the context is left empty if not filled in")
+	@Advanced
+	public String getRateLimitContext() {
+		return rateLimitContext;
+	}
+	public void setRateLimitContext(String rateLimitContext) {
+		this.rateLimitContext = rateLimitContext;
+	}
+	
+	@Comment(title = "The action to use for rate limiting, by default the service id will be used as action")
+	@Advanced
+	public String getRateLimitAction() {
+		return rateLimitAction;
+	}
+	public void setRateLimitAction(String rateLimitAction) {
+		this.rateLimitAction = rateLimitAction;
+	}
+
 }

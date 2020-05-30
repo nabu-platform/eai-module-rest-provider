@@ -27,7 +27,6 @@ import be.nabu.eai.module.web.application.TemporaryAuthenticationImpl;
 import be.nabu.eai.module.web.application.WebApplication;
 import be.nabu.eai.module.web.application.WebApplicationUtils;
 import be.nabu.eai.module.web.application.api.TemporaryAuthenticator;
-import be.nabu.eai.module.web.application.rate.RateLimiter;
 import be.nabu.eai.repository.EAIResourceRepository;
 import be.nabu.eai.repository.Notification;
 import be.nabu.libs.authentication.api.Authenticator;
@@ -71,6 +70,7 @@ import be.nabu.libs.services.ServiceUtils;
 import be.nabu.libs.services.api.DefinedService;
 import be.nabu.libs.services.api.ExecutionContext;
 import be.nabu.libs.services.api.ServiceException;
+import be.nabu.libs.services.api.ServiceRuntimeTracker;
 import be.nabu.libs.types.ComplexContentWrapperFactory;
 import be.nabu.libs.types.TypeUtils;
 import be.nabu.libs.types.api.ComplexContent;
@@ -128,6 +128,10 @@ public class RESTFragmentListener implements EventHandler<HTTPRequest, HTTPRespo
 		this.allowEncoding = allowEncoding && false;
 		this.cacheService = cacheService;
 		String path = webArtifact.getConfiguration().getPath();
+		// make up a more-or-less unique path
+		if (path == null || path.trim().isEmpty()) {
+			path = service.getId();
+		}
 		if (path.startsWith("/")) {
 			path = path.substring(1);
 		}
@@ -176,6 +180,7 @@ public class RESTFragmentListener implements EventHandler<HTTPRequest, HTTPRespo
 		Device device = null;
 		try {
 			ServiceRuntime.setGlobalContext(new HashMap<String, Object>());
+			ServiceRuntime.getGlobalContext().put("service.context", webApplication.getId());
 			// stop fast if wrong method
 			if (webArtifact.getConfiguration().getMethod() != null && !webArtifact.getConfiguration().getMethod().toString().equalsIgnoreCase(request.getMethod())) {
 				return null;
@@ -332,8 +337,6 @@ public class RESTFragmentListener implements EventHandler<HTTPRequest, HTTPRespo
 				}
 			}
 			
-			// check rate limiting (if any)
-			RateLimiter rateLimiter = webApplication.getRateLimiter();
 			SourceImpl source = PipelineUtils.getPipeline() == null ? new SourceImpl() : new SourceImpl(PipelineUtils.getPipeline().getSourceContext());
 			// if we are being proxied, get the "actual" data
 			if (request.getContent() != null && webApplication.getConfig().getVirtualHost().getConfig().getServer().getConfig().isProxied()) {
@@ -355,13 +358,6 @@ public class RESTFragmentListener implements EventHandler<HTTPRequest, HTTPRespo
 				}
 			}
 			
-			if (rateLimiter != null) {
-				HTTPResponse response = rateLimiter.handle(webApplication, request, source, token, device, service.getId(), null);
-				if (response != null) {
-					return response;
-				}
-			}
-
 			boolean sanitizeInput = webArtifact.getConfiguration().getSanitizeInput() != null && webArtifact.getConfiguration().getSanitizeInput();
 			
 			ComplexContent input = service.getServiceInterface().getInputDefinition().newInstance();
@@ -588,6 +584,23 @@ public class RESTFragmentListener implements EventHandler<HTTPRequest, HTTPRespo
 				}
 			}
 			
+			// let's not bother with rate limiting if it isn't filled in
+			if (webApplication.getRateLimiter() != null) {
+				String rateLimitAction = webArtifact.getConfig().getRateLimitAction();
+				if (rateLimitAction == null) {
+					rateLimitAction = service.getId();
+				}
+				String rateLimitContext = webArtifact.getConfig().getRateLimitContext();
+				if (rateLimitContext != null && rateLimitContext.startsWith("=")) {
+					Object result = getVariable(input, webArtifact.getConfig().getRateLimitContext().substring(1).replaceAll("\\binput/", ""));
+					rateLimitContext = result == null ? null : result.toString();
+				}
+				HTTPResponse response = WebApplicationUtils.checkRateLimits(webApplication, source, token, device, rateLimitAction, rateLimitContext, request);
+				if (response != null) {
+					return response;
+				}
+			}
+			
 			ExecutionContext newExecutionContext = webApplication.getRepository().newExecutionContext(token);
 			// play with the features
 			WebApplicationUtils.featureRich(webApplication, request, newExecutionContext);
@@ -722,6 +735,14 @@ public class RESTFragmentListener implements EventHandler<HTTPRequest, HTTPRespo
 				ServiceRuntime runtime = new ServiceRuntime(service, newExecutionContext);
 				// we set the service context to the web application, rest services can be mounted in multiple applications
 				ServiceUtils.setServiceContext(runtime, webApplication.getId());
+				// there seems to be a problem with this in some circumstances though it is entirely unclear as to how/when/why, disabling until i have the time to dig deeper
+				boolean trackRequests = false;
+				// we can use the tracker to report our HTTP shizzles to anyone who might be listening
+				ServiceRuntimeTracker tracker = trackRequests ? newExecutionContext.getServiceContext().getServiceTrackerProvider().getTracker(runtime) : null;
+				if (tracker != null) {
+					tracker.report(HTTPUtils.toMessage(request));
+				}
+				
 				ComplexContent output = runtime.run(input);
 				List<Header> headers = new ArrayList<Header>();
 				if (output != null && output.get("header") != null) {
@@ -916,7 +937,11 @@ public class RESTFragmentListener implements EventHandler<HTTPRequest, HTTPRespo
 					if (allowEncoding) {
 						HTTPUtils.setContentEncoding(part, request.getContent().getHeaders());
 					}
-					return new DefaultHTTPResponse(request, 200, HTTPCodes.getMessage(200), part);
+					HTTPResponse response = new DefaultHTTPResponse(request, 200, HTTPCodes.getMessage(200), part);
+					if (tracker != null) {
+						tracker.report(HTTPUtils.toMessage(response));
+					}
+					return response;
 				}
 			}
 		}

@@ -12,13 +12,17 @@ import java.util.Set;
 import be.nabu.eai.module.authorization.vm.VMAuthorizationService;
 import be.nabu.eai.module.authorization.vm.VMServiceAuthorizer;
 import be.nabu.eai.module.rest.provider.iface.RESTInterfaceArtifact;
+import be.nabu.eai.module.web.application.RateLimitImpl;
 import be.nabu.eai.module.web.application.WebApplication;
 import be.nabu.eai.module.web.application.WebFragment;
 import be.nabu.eai.module.web.application.WebFragmentConfiguration;
 import be.nabu.eai.module.web.application.api.PermissionWithRole;
+import be.nabu.eai.module.web.application.api.RateLimit;
 import be.nabu.eai.repository.EAIResourceRepository;
 import be.nabu.eai.repository.artifacts.container.BaseContainerArtifact;
 import be.nabu.libs.artifacts.api.Artifact;
+import be.nabu.libs.artifacts.api.Feature;
+import be.nabu.libs.artifacts.api.FeaturedArtifact;
 import be.nabu.libs.authentication.api.Permission;
 import be.nabu.libs.events.api.EventSubscription;
 import be.nabu.libs.http.api.HTTPRequest;
@@ -44,7 +48,7 @@ import be.nabu.libs.types.api.ComplexContent;
 import be.nabu.libs.types.api.ComplexType;
 import be.nabu.libs.types.api.DefinedType;
 
-public class RESTService extends BaseContainerArtifact implements WebFragment, DefinedService, ServiceAuthorizerProvider {
+public class RESTService extends BaseContainerArtifact implements WebFragment, DefinedService, ServiceAuthorizerProvider, FeaturedArtifact {
 
 	public static class PermissionImplementation implements PermissionWithRole {
 		
@@ -277,6 +281,24 @@ public class RESTService extends BaseContainerArtifact implements WebFragment, D
 			configuration.put("actualId", getId());
 		}
 		return configuration;
+	}
+
+	@Override
+	public List<RateLimit> getRateLimits(WebApplication artifact, String path) {
+		List<RateLimit> limits = new ArrayList<RateLimit>();
+		RESTInterfaceArtifact iface = getArtifact(RESTInterfaceArtifact.class);
+		if (iface != null) {
+			limits.add(new RateLimitImpl(
+				iface.getConfig().getRateLimitAction() == null ? getId() : iface.getConfig().getRateLimitAction(),
+				iface.getConfig().getRateLimitContext()));
+		}
+		return limits;
+	}
+
+	@Override
+	public List<Feature> getAvailableFeatures() {
+		SimpleVMServiceDefinition artifact = getArtifact(SimpleVMServiceDefinition.class);
+		return artifact != null ? artifact.getAvailableFeatures() : new ArrayList<Feature>();
 	}
 
 }
