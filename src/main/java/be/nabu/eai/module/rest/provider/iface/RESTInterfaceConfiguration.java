@@ -18,16 +18,16 @@ import be.nabu.libs.types.api.DefinedType;
 
 @XmlRootElement(name = "restInterface")
 @XmlType(propOrder = { "method", "path", "queryParameters", "cookieParameters", "sessionParameters", "headerParameters", "responseHeaders", "roles", "permissionContext", "permissionAction", "preferredResponseType",
-		"asynchronous", "inputAsStream", "outputAsStream", "input", "output", "sanitizeInput", "acceptedLanguages", "configurationType", "device", "token", "lenient", "namingConvention", "webApplicationId", 
+		"asynchronous", "inputAsStream", "outputAsStream", "input", "output", "sanitizeInput", "acceptedLanguages", "configurationType", "device", "token", "lenient", "namingConvention", "webApplicationId", "geoPosition", 
 		"language", "allowFormBinding", "caseInsensitive", "cache", "allowCookiesWithoutReferer", "allowCookiesWithExternalReferer", "request", "allowHeaderAsQueryParameter", "useServerCache", "source", 
-		"allowRaw", "domain", "temporaryAlias", "temporarySecret", "rateLimitContext", "rateLimitAction" })
+		"allowRaw", "domain", "temporaryAlias", "temporarySecret", "temporaryCorrelationId", "rateLimitContext", "rateLimitAction" })
 public class RESTInterfaceConfiguration {
 
 	private DefinedType input, output;
 	private String path, queryParameters, cookieParameters, sessionParameters, headerParameters, responseHeaders;
 	private String permissionContext, permissionAction;
 	private String rateLimitContext, rateLimitAction;
-	private String temporaryAlias, temporarySecret;
+	private String temporaryAlias, temporarySecret, temporaryCorrelationId;
 	private WebMethod method;
 	private List<String> roles;
 	private Boolean asynchronous;
@@ -38,7 +38,7 @@ public class RESTInterfaceConfiguration {
 	private Boolean device, token;
 	private boolean language;
 	private boolean lenient, allowRaw;
-	private boolean webApplicationId;
+	private boolean webApplicationId, geoPosition;
 	private NamingConvention namingConvention;
 	private boolean allowFormBinding;
 	private boolean caseInsensitive;
@@ -325,13 +325,22 @@ public class RESTInterfaceConfiguration {
 	public void setTemporaryAlias(String temporaryAlias) {
 		this.temporaryAlias = temporaryAlias;
 	}
-	
+
 	@Advanced
 	public String getTemporarySecret() {
 		return temporarySecret;
 	}
 	public void setTemporarySecret(String temporarySecret) {
 		this.temporarySecret = temporarySecret;
+	}
+	
+	@Comment(title = "You can correlate a temporary authentication to something to restrict it further. For example you don't have permission to download _any_ file once, just that _specific_ file")
+	@Advanced
+	public String getTemporaryCorrelationId() {
+		return temporaryCorrelationId;
+	}
+	public void setTemporaryCorrelationId(String temporaryCorrelationId) {
+		this.temporaryCorrelationId = temporaryCorrelationId;
 	}
 	
 	@Comment(title = "The context to use for rate limiting, the context is left empty if not filled in")
@@ -350,6 +359,15 @@ public class RESTInterfaceConfiguration {
 	}
 	public void setRateLimitAction(String rateLimitAction) {
 		this.rateLimitAction = rateLimitAction;
+	}
+	
+	@Comment(title = "Whether or not we want to expose a geo position header (if available)")
+	@Advanced
+	public boolean isGeoPosition() {
+		return geoPosition;
+	}
+	public void setGeoPosition(boolean geoPosition) {
+		this.geoPosition = geoPosition;
 	}
 
 }

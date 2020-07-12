@@ -36,6 +36,7 @@ import be.nabu.libs.authentication.api.PermissionHandler;
 import be.nabu.libs.authentication.api.RoleHandler;
 import be.nabu.libs.authentication.api.Token;
 import be.nabu.libs.authentication.api.TokenValidator;
+import be.nabu.libs.authentication.api.TokenWithSecret;
 import be.nabu.libs.cache.api.Cache;
 import be.nabu.libs.cache.api.CacheEntry;
 import be.nabu.libs.cache.api.CacheWithHash;
@@ -114,6 +115,7 @@ public class RESTFragmentListener implements EventHandler<HTTPRequest, HTTPRespo
 	private WebApplication webApplication;
 	private ComplexContent configuration;
 	private BindingProvider bindingProvider;
+	private boolean persistAuthenticationChange = false;
 	
 	private Map<String, TypeOperation> analyzedOperations = new HashMap<String, TypeOperation>();
 	private DefinedService cacheService;
@@ -181,6 +183,7 @@ public class RESTFragmentListener implements EventHandler<HTTPRequest, HTTPRespo
 		try {
 			ServiceRuntime.setGlobalContext(new HashMap<String, Object>());
 			ServiceRuntime.getGlobalContext().put("service.context", webApplication.getId());
+			ServiceRuntime.getGlobalContext().put("service.source", "rest");
 			// stop fast if wrong method
 			if (webArtifact.getConfiguration().getMethod() != null && !webArtifact.getConfiguration().getMethod().toString().equalsIgnoreCase(request.getMethod())) {
 				return null;
@@ -340,15 +343,9 @@ public class RESTFragmentListener implements EventHandler<HTTPRequest, HTTPRespo
 			SourceImpl source = PipelineUtils.getPipeline() == null ? new SourceImpl() : new SourceImpl(PipelineUtils.getPipeline().getSourceContext());
 			// if we are being proxied, get the "actual" data
 			if (request.getContent() != null && webApplication.getConfig().getVirtualHost().getConfig().getServer().getConfig().isProxied()) {
-				Header header = MimeUtils.getHeader(ServerHeader.REMOTE_HOST.getName(), request.getContent().getHeaders());
-				if (header != null && header.getValue() != null) {
-					source.setRemoteHost(header.getValue());
-				}
-				header = MimeUtils.getHeader(ServerHeader.REMOTE_ADDRESS.getName(), request.getContent().getHeaders());
-				if (header != null && header.getValue() != null) {
-					source.setRemoteIp(header.getValue());
-				}
-				header = MimeUtils.getHeader(ServerHeader.REMOTE_PORT.getName(), request.getContent().getHeaders());
+				source.setRemoteHost(HTTPUtils.getRemoteHost(true, request.getContent().getHeaders()));
+				source.setRemoteIp(HTTPUtils.getRemoteAddress(true, request.getContent().getHeaders()));
+				Header header = MimeUtils.getHeader(ServerHeader.REMOTE_PORT.getName(), request.getContent().getHeaders());
 				if (header != null && header.getValue() != null) {
 					source.setRemotePort(Integer.parseInt(header.getValue()));
 				}
@@ -452,6 +449,28 @@ public class RESTFragmentListener implements EventHandler<HTTPRequest, HTTPRespo
 				input.set("token", token);
 			}
 			
+			if (input.getType().get("geoPosition") != null) {
+				Header geoPosition = MimeUtils.getHeader("Geo-Position", request.getContent().getHeaders());
+				if (geoPosition == null) {
+					geoPosition = MimeUtils.getHeader("X-Geo-Position", request.getContent().getHeaders());
+				}
+				if (geoPosition != null) {
+					String headerValue = MimeUtils.getFullHeaderValue(geoPosition);
+					try {
+						String[] split = headerValue.split("[\\s]*;[\\s]*");
+						if (split.length >= 2) {
+							Double latitude = Double.parseDouble(split[0]);
+							Double longitude = Double.parseDouble(split[1].split("[\\s]+")[0]);
+							input.set("geoPosition/latitude", latitude);
+							input.set("geoPosition/longitude", longitude);
+						}
+					}
+					catch (Exception e) {
+						logger.warn("Invalid geo-position header: " + headerValue);
+					}
+				}
+			}
+			
 			if (input.getType().get("content") != null && request.getContent() instanceof ContentPart) {
 				ReadableContainer<ByteBuffer> readable = ((ContentPart) request.getContent()).getReadable();
 				// the readable can be null (e.g. empty part)
@@ -512,7 +531,7 @@ public class RESTFragmentListener implements EventHandler<HTTPRequest, HTTPRespo
 
 			// this allows for temporarily valid tokens like one-time use or limited in time access to e.g. a file download
 			if (webArtifact.getConfig().getTemporaryAlias() != null && temporaryAuthenticator != null) {
-				String alias = null, secret = null;
+				String alias = null, secret = null, correlationId = null;
 				if (webArtifact.getConfig().getTemporaryAlias().startsWith("=")) {
 					Object result = getVariable(input, webArtifact.getConfig().getTemporaryAlias().substring(1).replaceAll("\\binput/", ""));
 					alias = result == null ? null : result.toString();
@@ -522,18 +541,32 @@ public class RESTFragmentListener implements EventHandler<HTTPRequest, HTTPRespo
 				}
 				// it is possible that we don't send an alias on purpose
 				if (alias != null) {
-					if (webArtifact.getConfig().getTemporarySecret().startsWith("=")) {
-						Object result = getVariable(input, webArtifact.getConfig().getTemporarySecret().substring(1).replaceAll("\\binput/", ""));
-						secret = result == null ? null : result.toString();
+					// the secret "can" be null, in case the alias is unique (e.g. uuid) but preferably not...
+					if (webArtifact.getConfig().getTemporarySecret() != null) {
+						if (webArtifact.getConfig().getTemporarySecret().startsWith("=")) {
+							Object result = getVariable(input, webArtifact.getConfig().getTemporarySecret().substring(1).replaceAll("\\binput/", ""));
+							secret = result == null ? null : result.toString();
+						}
+						else {
+							secret = webArtifact.getConfig().getTemporarySecret();
+						}
 					}
-					else {
-						secret = webArtifact.getConfig().getTemporarySecret();
+					if (webArtifact.getConfig().getTemporaryCorrelationId() != null) {
+						if (webArtifact.getConfig().getTemporaryCorrelationId().startsWith("=")) {
+							Object result = getVariable(input, webArtifact.getConfig().getTemporaryCorrelationId().substring(1).replaceAll("\\binput/", ""));
+							correlationId = result == null ? null : result.toString();
+						}
+						else {
+							correlationId = webArtifact.getConfig().getTemporaryCorrelationId();
+						}
 					}
 					// this trumps any other token
-					token = temporaryAuthenticator.authenticate(webApplication.getRealm(), new TemporaryAuthenticationImpl(alias, secret), device);
-					
-					// if we have a temporary alias, we are pulling it from the input and we can only perform any checks after we have parsed the input
-					// in every other case (which is the vast majority of cases) it is interesting to do the role check as early as possible to save resources on parsing the input
+					// first check for a specific token for this service
+					token = temporaryAuthenticator.authenticate(webApplication.getRealm(), new TemporaryAuthenticationImpl(alias, secret), device, service.getId(), correlationId);
+					if (token == null) {
+						// otherwise, check if there is a broader "execution" token
+						token = temporaryAuthenticator.authenticate(webApplication.getRealm(), new TemporaryAuthenticationImpl(alias, secret), device, TemporaryAuthenticator.EXECUTION, correlationId);
+					}
 					if (roleHandler != null && webArtifact.getConfiguration().getRoles() != null) {
 						boolean hasRole = false;
 						for (String role : webArtifact.getConfiguration().getRoles()) {
@@ -546,7 +579,6 @@ public class RESTFragmentListener implements EventHandler<HTTPRequest, HTTPRespo
 							throw new HTTPException(token == null ? 401 : 403, "User does not have one of the allowed roles", "User '" + (token == null ? Authenticator.ANONYMOUS : token.getName()) + "' does not have one of the allowed roles '" + webArtifact.getConfiguration().getRoles() + "' for service: " + service.getId(), token);
 						}
 					}
-	
 					// update the token in the input
 					if (input.getType().get("token") != null) {
 						input.set("token", token);
@@ -650,6 +682,12 @@ public class RESTFragmentListener implements EventHandler<HTTPRequest, HTTPRespo
 						}
 						
 						ServiceRuntime runtime = new ServiceRuntime(cacheService, webApplication.getRepository().newExecutionContext(token));
+						
+						Header correlationHeader = MimeUtils.getHeader("X-Correlation-Id", request.getContent().getHeaders());
+						if (correlationHeader != null) {
+							runtime.setCorrelationId(correlationHeader.getValue());
+						}
+						
 						// we set the service context to the web application, rest services can be mounted in multiple applications
 						ServiceUtils.setServiceContext(runtime, webApplication.getId());
 						ComplexContent cacheOutput = runtime.run(cacheInput);
@@ -938,6 +976,54 @@ public class RESTFragmentListener implements EventHandler<HTTPRequest, HTTPRespo
 						HTTPUtils.setContentEncoding(part, request.getContent().getHeaders());
 					}
 					HTTPResponse response = new DefaultHTTPResponse(request, 200, HTTPCodes.getMessage(200), part);
+					
+					// if we upgraded the security with a persistent token, persist it
+					Token currentToken = newExecutionContext.getSecurityContext().getToken();
+					// someone upgraded the token
+					if (persistAuthenticationChange && currentToken != null && currentToken.getRealm() != null && currentToken.getRealm().equals(webApplication.getRealm()) && !currentToken.equals(token)) {
+						boolean sslOnly = webApplication.getConfig().getVirtualHost().getConfig().getServer().isSecure();
+						if (currentToken instanceof TokenWithSecret) {
+							String secret = ((TokenWithSecret) currentToken).getSecret();
+							// if we have a secret to remember this token, use it
+							if (secret != null) {
+								// add new set-cookie header to remember the secret
+								response.getContent().setHeader(HTTPUtils.newSetCookieHeader(
+									"Realm-" + webApplication.getRealm(), 
+									token.getName() + "/" + ((TokenWithSecret) token).getSecret(), 
+									// if there is no valid until in the token, set it to a year
+									token.getValidUntil() == null ? new Date(new Date().getTime() + 1000l*60*60*24*365) : token.getValidUntil(),
+									// path
+									webApplication.getCookiePath(), 
+									// domain
+									null,
+									// secure
+									sslOnly,
+									// http only
+									true
+								));
+							}
+						}
+						Session newSession = webApplication.getSessionProvider().newSession();
+						// copy existing session
+						if (session != null) {
+							for (String key : session) {
+								newSession.set(key, session.get(key));
+							}
+						}
+						// set the new token
+						newSession.set(GlueListener.buildTokenName(token.getRealm()), currentToken);
+						ModifiableHeader cookieHeader = HTTPUtils.newSetCookieHeader(
+							GlueListener.SESSION_COOKIE, 
+							newSession.getId(), 
+							null, 
+							webApplication.getCookiePath(), 
+							null, 
+							sslOnly, 
+							true
+						);
+						response.getContent().setHeader(cookieHeader);
+					}
+					
 					if (tracker != null) {
 						tracker.report(HTTPUtils.toMessage(response));
 					}

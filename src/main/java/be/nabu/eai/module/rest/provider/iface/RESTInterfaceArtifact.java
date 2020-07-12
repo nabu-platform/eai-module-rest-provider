@@ -33,6 +33,7 @@ import be.nabu.libs.types.java.BeanResolver;
 import be.nabu.libs.types.properties.MaxOccursProperty;
 import be.nabu.libs.types.properties.MinOccursProperty;
 import be.nabu.libs.types.structure.Structure;
+import nabu.utils.types.Coordinate;
 
 public class RESTInterfaceArtifact extends JAXBArtifact<RESTInterfaceConfiguration> implements DefinedServiceInterface {
 
@@ -262,6 +263,9 @@ public class RESTInterfaceArtifact extends JAXBArtifact<RESTInterfaceConfigurati
 			}
 			if (getConfig().isWebApplicationId()) {
 				input.add(new SimpleElementImpl<String>("webApplicationId", SimpleTypeWrapperFactory.getInstance().getWrapper().wrap(String.class), input));
+			}
+			if (getConfig().isGeoPosition()) {
+				input.add(new ComplexElementImpl("geoPosition", (ComplexType) BeanResolver.getInstance().resolve(Coordinate.class), input, new ValueImpl<Integer>(MinOccursProperty.getInstance(), 0)));
 			}
 			if (getConfig().isRequest()) {
 				input.add(new ComplexElementImpl("request", (ComplexType) BeanResolver.getInstance().resolve(HTTPRequest.class), input));
