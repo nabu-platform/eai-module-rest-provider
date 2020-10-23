@@ -16,6 +16,7 @@ import java.util.Map;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import be.nabu.eai.module.http.server.HTTPServerArtifact;
 import be.nabu.eai.module.http.virtual.VirtualHostArtifact;
 import be.nabu.eai.module.http.virtual.api.SourceImpl;
 import be.nabu.eai.module.rest.RESTUtils;
@@ -29,6 +30,8 @@ import be.nabu.eai.module.web.application.WebApplicationUtils;
 import be.nabu.eai.module.web.application.api.TemporaryAuthenticator;
 import be.nabu.eai.repository.EAIResourceRepository;
 import be.nabu.eai.repository.Notification;
+import be.nabu.eai.repository.api.VirusInfection;
+import be.nabu.eai.repository.api.VirusScanner;
 import be.nabu.libs.authentication.api.Authenticator;
 import be.nabu.libs.authentication.api.Device;
 import be.nabu.libs.authentication.api.DeviceValidator;
@@ -63,6 +66,7 @@ import be.nabu.libs.http.glue.GlueListener;
 import be.nabu.libs.http.glue.GlueListener.PathAnalysis;
 import be.nabu.libs.http.glue.impl.ResponseMethods;
 import be.nabu.libs.nio.PipelineUtils;
+import be.nabu.libs.nio.api.Pipeline;
 import be.nabu.libs.property.ValueUtils;
 import be.nabu.libs.property.api.Value;
 import be.nabu.libs.resources.URIUtils;
@@ -91,6 +95,9 @@ import be.nabu.libs.types.properties.CollectionFormatProperty;
 import be.nabu.libs.types.properties.MaxOccursProperty;
 import be.nabu.libs.types.structure.Structure;
 import be.nabu.libs.validator.api.ValidationMessage.Severity;
+import be.nabu.utils.cep.api.EventSeverity;
+import be.nabu.utils.cep.impl.CEPUtils;
+import be.nabu.utils.cep.impl.HTTPComplexEventImpl;
 import be.nabu.utils.io.IOUtils;
 import be.nabu.utils.io.api.ByteBuffer;
 import be.nabu.utils.io.api.ReadableContainer;
@@ -242,7 +249,8 @@ public class RESTFragmentListener implements EventHandler<HTTPRequest, HTTPRespo
 			boolean refererMatch = false;
 			if (referer != null) {
 				VirtualHostArtifact virtualHost = webApplication.getConfig().getVirtualHost();
-				if (referer.getHost() != null) {
+				// we can only check if we filled in the host
+				if (virtualHost.getConfig().getHost() != null) {
 					refererMatch = referer.getHost().equals(virtualHost.getConfig().getHost());
 					if (!refererMatch) {
 						List<String> aliases = virtualHost.getConfig().getAliases();
@@ -477,6 +485,11 @@ public class RESTFragmentListener implements EventHandler<HTTPRequest, HTTPRespo
 				if (readable != null) {
 					// we want the stream
 					if (input.getType().get("content").getType() instanceof SimpleType) {
+						HTTPResponse scanResponse = WebApplicationUtils.scanForVirus(service, webApplication, device, token, request);
+						if (scanResponse != null) {
+							return scanResponse;
+						}
+						
 						input.set("content", IOUtils.toInputStream(readable));
 						if (webArtifact.getConfig().getInputAsStream() != null && webArtifact.getConfig().getInputAsStream()) {
 							input.set("meta/contentType", MimeUtils.getContentType(request.getContent().getHeaders()));
@@ -517,7 +530,12 @@ public class RESTFragmentListener implements EventHandler<HTTPRequest, HTTPRespo
 							}
 						}
 						try {
-							input.set("content", sanitize(binding.unmarshal(IOUtils.toInputStream(readable), new Window[0]), sanitizeInput));
+							ComplexContent unmarshalled = binding.unmarshal(IOUtils.toInputStream(readable), new Window[0]);
+							HTTPResponse scanResponse = WebApplicationUtils.scanForVirus(service, webApplication, device, token, request, unmarshalled);
+							if (scanResponse != null) {
+								return scanResponse;
+							}
+							input.set("content", sanitize(unmarshalled, sanitizeInput));
 						}
 						catch (IOException e) {
 							throw new HTTPException(500, "Unexpected I/O exception", e, token);

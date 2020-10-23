@@ -21,6 +21,8 @@ import be.nabu.eai.module.web.application.api.RateLimit;
 import be.nabu.eai.repository.EAIResourceRepository;
 import be.nabu.eai.repository.artifacts.container.BaseContainerArtifact;
 import be.nabu.libs.artifacts.api.Artifact;
+import be.nabu.libs.artifacts.api.ArtifactWithExceptions;
+import be.nabu.libs.artifacts.api.ExceptionDescription;
 import be.nabu.libs.artifacts.api.Feature;
 import be.nabu.libs.artifacts.api.FeaturedArtifact;
 import be.nabu.libs.authentication.api.Permission;
@@ -48,7 +50,7 @@ import be.nabu.libs.types.api.ComplexContent;
 import be.nabu.libs.types.api.ComplexType;
 import be.nabu.libs.types.api.DefinedType;
 
-public class RESTService extends BaseContainerArtifact implements WebFragment, DefinedService, ServiceAuthorizerProvider, FeaturedArtifact {
+public class RESTService extends BaseContainerArtifact implements WebFragment, DefinedService, ServiceAuthorizerProvider, FeaturedArtifact, ArtifactWithExceptions {
 
 	public static class PermissionImplementation implements PermissionWithRole {
 		
@@ -299,6 +301,12 @@ public class RESTService extends BaseContainerArtifact implements WebFragment, D
 	public List<Feature> getAvailableFeatures() {
 		SimpleVMServiceDefinition artifact = getArtifact(SimpleVMServiceDefinition.class);
 		return artifact != null ? artifact.getAvailableFeatures() : new ArrayList<Feature>();
+	}
+
+	@Override
+	public List<ExceptionDescription> getExceptions() {
+		SimpleVMServiceDefinition service = getArtifact("implementation");
+		return service == null ? null : service.getExceptions();
 	}
 
 }

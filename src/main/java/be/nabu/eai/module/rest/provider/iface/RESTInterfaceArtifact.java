@@ -280,7 +280,7 @@ public class RESTInterfaceArtifact extends JAXBArtifact<RESTInterfaceConfigurati
 			this.output = output;
 		}
 		catch (IOException e) {
-			logger.error("Can not rebuild interface", e);
+			logger.error("Can not rebuild interface for: " + getId(), e);
 		}
 	}
 
