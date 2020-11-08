@@ -4,7 +4,10 @@ import java.io.IOException;
 import java.util.List;
 
 import javafx.beans.property.SimpleBooleanProperty;
+import javafx.scene.control.Accordion;
 import javafx.scene.control.ScrollPane;
+import javafx.scene.control.ScrollPane.ScrollBarPolicy;
+import javafx.scene.control.TitledPane;
 import javafx.scene.layout.AnchorPane;
 import javafx.scene.layout.VBox;
 import be.nabu.eai.developer.MainController;
@@ -60,11 +63,13 @@ public class RESTInterfaceGUIManager extends BaseJAXBGUIManager<RESTInterfaceCon
 	@Override
 	public void display(MainController controller, AnchorPane pane, RESTInterfaceArtifact instance) {
 		AnchorPane properties = new AnchorPane();
-		super.display(instance, properties);
+		Accordion displayWithAccordion = super.displayWithAccordion(instance, properties);
+//		super.display(instance, properties);
+		
 		VBox box = new VBox();
+		TitledPane titledPane = new TitledPane("Type Definitions", box);
 		
 		box.getChildren().addAll(
-			properties,
 			display(instance, box, instance.getPath()),
 			display(instance, box, instance.getQuery(), MinOccursProperty.getInstance(), MaxOccursProperty.getInstance()),
 			display(instance, box, instance.getHeader(), MinOccursProperty.getInstance(), MaxOccursProperty.getInstance()),
@@ -72,14 +77,17 @@ public class RESTInterfaceGUIManager extends BaseJAXBGUIManager<RESTInterfaceCon
 			display(instance, box, instance.getCookie(), MinOccursProperty.getInstance(), MaxOccursProperty.getInstance()),
 			display(instance, box, instance.getSession(), MinOccursProperty.getInstance(), MaxOccursProperty.getInstance())
 		);
+		displayWithAccordion.getPanes().add(titledPane);
 		
 		ScrollPane scroll = new ScrollPane();
 		AnchorPane.setBottomAnchor(scroll, 0d);
 		AnchorPane.setLeftAnchor(scroll, 0d);
 		AnchorPane.setRightAnchor(scroll, 0d);
 		AnchorPane.setTopAnchor(scroll, 0d);
-		box.prefWidthProperty().bind(scroll.widthProperty());
-		scroll.setContent(box);
+//		box.prefWidthProperty().bind(scroll.widthProperty());
+		scroll.setFitToWidth(true);
+		scroll.setHbarPolicy(ScrollBarPolicy.NEVER);
+		scroll.setContent(displayWithAccordion);
 		pane.getChildren().add(scroll);
 	}
 	@SuppressWarnings("rawtypes")

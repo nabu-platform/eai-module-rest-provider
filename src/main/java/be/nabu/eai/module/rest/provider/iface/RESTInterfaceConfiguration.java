@@ -15,6 +15,7 @@ import be.nabu.eai.module.rest.WebMethod;
 import be.nabu.eai.module.rest.WebResponseType;
 import be.nabu.eai.repository.jaxb.ArtifactXMLAdapter;
 import be.nabu.libs.types.api.DefinedType;
+import be.nabu.libs.types.api.annotation.Field;
 
 @XmlRootElement(name = "restInterface")
 @XmlType(propOrder = { "method", "path", "queryParameters", "cookieParameters", "sessionParameters", "headerParameters", "responseHeaders", "roles", "permissionContext", "permissionAction", "preferredResponseType",
@@ -37,7 +38,7 @@ public class RESTInterfaceConfiguration {
 	private Boolean acceptedLanguages;
 	private Boolean device, token;
 	private boolean language;
-	private boolean lenient, allowRaw;
+	private boolean lenient = true, allowRaw;
 	private boolean webApplicationId, geoPosition;
 	private NamingConvention namingConvention;
 	private boolean allowFormBinding;
@@ -59,12 +60,15 @@ public class RESTInterfaceConfiguration {
 	
 	private DefinedType configurationType;
 
+	@Field(comment = "The path this REST service should listen on, use {} to indicate variable parts. For example: /resource/{resourceId}")
 	public String getPath() {
 		return path;
 	}
 	public void setPath(String path) {
 		this.path = path;
 	}
+	
+	@Field(group = "security")
 	@XmlElement(name = "role")
 	public List<String> getRoles() {
 		return roles;
@@ -72,30 +76,36 @@ public class RESTInterfaceConfiguration {
 	public void setRoles(List<String> roles) {
 		this.roles = roles;
 	}
+	@Field(comment = "A comma-separated list of query input parameters. You can further limit the resulting type in the 'Type Definitions' section.")
 	public String getQueryParameters() {
 		return queryParameters;
 	}
 	public void setQueryParameters(String queryParameters) {
 		this.queryParameters = queryParameters;
 	}
+	@Field(comment = "A comma-separated list of cookie input parameters. You can further limit the resulting type in the 'Type Definitions' section.")
 	public String getCookieParameters() {
 		return cookieParameters;
 	}
 	public void setCookieParameters(String cookieParameters) {
 		this.cookieParameters = cookieParameters;
 	}
+	@Field(comment = "A comma-separated list of session input parameters. You can further limit the resulting type in the 'Type Definitions' section.")
 	public String getSessionParameters() {
 		return sessionParameters;
 	}
 	public void setSessionParameters(String sessionParameters) {
 		this.sessionParameters = sessionParameters;
 	}
+	@Field(comment = "A comma-separated list of header input parameters. You can further limit the resulting type in the 'Type Definitions' section.")
 	public String getHeaderParameters() {
 		return headerParameters;
 	}
 	public void setHeaderParameters(String headerParameters) {
 		this.headerParameters = headerParameters;
 	}
+	
+	@Field(show = "inputAsStream != true", comment = "Configure the definition of the input type. The incoming request will be automatically parsed.")
 	@XmlJavaTypeAdapter(value = ArtifactXMLAdapter.class)
 	public DefinedType getInput() {
 		return input;
@@ -103,6 +113,8 @@ public class RESTInterfaceConfiguration {
 	public void setInput(DefinedType input) {
 		this.input = input;
 	}
+	
+	@Field(show = "outputAsStream != true", comment = "Configure the definition of the output type. The outgoing response will be automatically formatted.")
 	@XmlJavaTypeAdapter(value = ArtifactXMLAdapter.class)
 	public DefinedType getOutput() {
 		return output;
@@ -117,6 +129,8 @@ public class RESTInterfaceConfiguration {
 	public void setAsynchronous(Boolean asynchronous) {
 		this.asynchronous = asynchronous;
 	}
+	@Advanced
+	@Field(comment = "If the requesting party does not indicate their preferred response type, what should be the default?")
 	public WebResponseType getPreferredResponseType() {
 		return preferredResponseType;
 	}
@@ -129,24 +143,28 @@ public class RESTInterfaceConfiguration {
 	public void setMethod(WebMethod method) {
 		this.method = method;
 	}
+	@Field(show = "input == null", comment = "Toggle this if you want to receive the input as pure bytes rather than a structured object. This is especially useful for receiving binary files.")
 	public Boolean getInputAsStream() {
 		return inputAsStream;
 	}
 	public void setInputAsStream(Boolean inputAsStream) {
 		this.inputAsStream = inputAsStream;
 	}
+	@Field(show = "output == null", comment = "Toggle this if you want to respond with pure bytes rather than a structure object. This is especially useful when sending binary files.")
 	public Boolean getOutputAsStream() {
 		return outputAsStream;
 	}
 	public void setOutputAsStream(Boolean outputAsStream) {
 		this.outputAsStream = outputAsStream;
 	}
+	@Field(comment = "A comma-separated list of response output headers you want to set. You can further limit the resulting type in the 'Type Definitions' section.")
 	public String getResponseHeaders() {
 		return responseHeaders;
 	}
 	public void setResponseHeaders(String responseHeaders) {
 		this.responseHeaders = responseHeaders;
 	}
+	@Advanced
 	public Boolean getSanitizeInput() {
 		return sanitizeInput;
 	}
@@ -161,6 +179,7 @@ public class RESTInterfaceConfiguration {
 	public void setAcceptedLanguages(Boolean acceptedLanguages) {
 		this.acceptedLanguages = acceptedLanguages;
 	}
+	@Field(group = "enrichInput")
 	@XmlJavaTypeAdapter(value = ArtifactXMLAdapter.class)
 	public DefinedType getConfigurationType() {
 		return configurationType;
@@ -168,18 +187,21 @@ public class RESTInterfaceConfiguration {
 	public void setConfigurationType(DefinedType configurationType) {
 		this.configurationType = configurationType;
 	}
+	@Field(group = "security")
 	public String getPermissionContext() {
 		return permissionContext;
 	}
 	public void setPermissionContext(String permissionContext) {
 		this.permissionContext = permissionContext;
 	}
+	@Field(group = "security")
 	public String getPermissionAction() {
 		return permissionAction;
 	}
 	public void setPermissionAction(String permissionAction) {
 		this.permissionAction = permissionAction;
 	}
+	@Field(group = "enrichInput")
 	public Boolean getDevice() {
 		return device;
 	}
@@ -187,6 +209,8 @@ public class RESTInterfaceConfiguration {
 		this.device = device;
 	}
 
+	@Field(comment = "When lenient is enabled, input that is (partially) invalid will not always trigger exceptions.")
+	@Advanced
 	public boolean getLenient() {
 		return lenient;
 	}
@@ -203,8 +227,7 @@ public class RESTInterfaceConfiguration {
 		this.namingConvention = namingConvention;
 	}
 	
-	@Advanced
-	@Comment(title = "If set to true, the web application id will be injected into the rest service")
+	@Field(group = "enrichInput", comment = "If set to true, the web application id will be injected into the rest service")
 	public boolean isWebApplicationId() {
 		return webApplicationId;
 	}
@@ -212,6 +235,7 @@ public class RESTInterfaceConfiguration {
 		this.webApplicationId = webApplicationId;
 	}
 	
+	@Field(group = "enrichInput")
 	public boolean isLanguage() {
 		return language;
 	}
@@ -303,7 +327,7 @@ public class RESTInterfaceConfiguration {
 		this.allowRaw = allowRaw;
 	}
 	
-	@Advanced
+	@Field(group = "enrichInput")
 	@Comment(title = "Inject the domain the request was done on, this can be useful for differentiating logic depending on the source domain")
 	public boolean isDomain() {
 		return domain;
@@ -311,6 +335,8 @@ public class RESTInterfaceConfiguration {
 	public void setDomain(boolean domain) {
 		this.domain = domain;
 	}
+	
+	@Field(group = "enrichInput")
 	public Boolean getToken() {
 		return token;
 	}
@@ -318,7 +344,7 @@ public class RESTInterfaceConfiguration {
 		this.token = token;
 	}
 	
-	@Advanced
+	@Field(group = "security")
 	public String getTemporaryAlias() {
 		return temporaryAlias;
 	}
@@ -326,7 +352,7 @@ public class RESTInterfaceConfiguration {
 		this.temporaryAlias = temporaryAlias;
 	}
 
-	@Advanced
+	@Field(group = "security")
 	public String getTemporarySecret() {
 		return temporarySecret;
 	}
@@ -335,7 +361,7 @@ public class RESTInterfaceConfiguration {
 	}
 	
 	@Comment(title = "You can correlate a temporary authentication to something to restrict it further. For example you don't have permission to download _any_ file once, just that _specific_ file")
-	@Advanced
+	@Field(group = "security")
 	public String getTemporaryCorrelationId() {
 		return temporaryCorrelationId;
 	}
@@ -343,8 +369,7 @@ public class RESTInterfaceConfiguration {
 		this.temporaryCorrelationId = temporaryCorrelationId;
 	}
 	
-	@Comment(title = "The context to use for rate limiting, the context is left empty if not filled in")
-	@Advanced
+	@Field(group = "rateLimiting", comment = "The context to use for rate limiting, the context is left empty if not filled in")
 	public String getRateLimitContext() {
 		return rateLimitContext;
 	}
@@ -352,8 +377,7 @@ public class RESTInterfaceConfiguration {
 		this.rateLimitContext = rateLimitContext;
 	}
 	
-	@Comment(title = "The action to use for rate limiting, by default the service id will be used as action")
-	@Advanced
+	@Field(group = "rateLimiting", comment = "The action to use for rate limiting, by default the service id will be used as action")
 	public String getRateLimitAction() {
 		return rateLimitAction;
 	}
@@ -362,7 +386,7 @@ public class RESTInterfaceConfiguration {
 	}
 	
 	@Comment(title = "Whether or not we want to expose a geo position header (if available)")
-	@Advanced
+	@Field(group = "enrichInput")
 	public boolean isGeoPosition() {
 		return geoPosition;
 	}
