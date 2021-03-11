@@ -16,7 +16,6 @@ import java.util.Map;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import be.nabu.eai.module.http.server.HTTPServerArtifact;
 import be.nabu.eai.module.http.virtual.VirtualHostArtifact;
 import be.nabu.eai.module.http.virtual.api.SourceImpl;
 import be.nabu.eai.module.rest.RESTUtils;
@@ -30,8 +29,6 @@ import be.nabu.eai.module.web.application.WebApplicationUtils;
 import be.nabu.eai.module.web.application.api.TemporaryAuthenticator;
 import be.nabu.eai.repository.EAIResourceRepository;
 import be.nabu.eai.repository.Notification;
-import be.nabu.eai.repository.api.VirusInfection;
-import be.nabu.eai.repository.api.VirusScanner;
 import be.nabu.libs.authentication.api.Authenticator;
 import be.nabu.libs.authentication.api.Device;
 import be.nabu.libs.authentication.api.DeviceValidator;
@@ -54,6 +51,7 @@ import be.nabu.libs.evaluator.types.operations.TypesOperationProvider;
 import be.nabu.libs.events.api.EventHandler;
 import be.nabu.libs.http.HTTPCodes;
 import be.nabu.libs.http.HTTPException;
+import be.nabu.libs.http.api.HTTPInterceptor;
 import be.nabu.libs.http.api.HTTPRequest;
 import be.nabu.libs.http.api.HTTPResponse;
 import be.nabu.libs.http.api.server.AuthenticationHeader;
@@ -66,7 +64,6 @@ import be.nabu.libs.http.glue.GlueListener;
 import be.nabu.libs.http.glue.GlueListener.PathAnalysis;
 import be.nabu.libs.http.glue.impl.ResponseMethods;
 import be.nabu.libs.nio.PipelineUtils;
-import be.nabu.libs.nio.api.Pipeline;
 import be.nabu.libs.property.ValueUtils;
 import be.nabu.libs.property.api.Value;
 import be.nabu.libs.resources.URIUtils;
@@ -75,7 +72,6 @@ import be.nabu.libs.services.ServiceUtils;
 import be.nabu.libs.services.api.DefinedService;
 import be.nabu.libs.services.api.ExecutionContext;
 import be.nabu.libs.services.api.ServiceException;
-import be.nabu.libs.services.api.ServiceRuntimeTracker;
 import be.nabu.libs.types.ComplexContentWrapperFactory;
 import be.nabu.libs.types.TypeUtils;
 import be.nabu.libs.types.api.ComplexContent;
@@ -95,9 +91,6 @@ import be.nabu.libs.types.properties.CollectionFormatProperty;
 import be.nabu.libs.types.properties.MaxOccursProperty;
 import be.nabu.libs.types.structure.Structure;
 import be.nabu.libs.validator.api.ValidationMessage.Severity;
-import be.nabu.utils.cep.api.EventSeverity;
-import be.nabu.utils.cep.impl.CEPUtils;
-import be.nabu.utils.cep.impl.HTTPComplexEventImpl;
 import be.nabu.utils.io.IOUtils;
 import be.nabu.utils.io.api.ByteBuffer;
 import be.nabu.utils.io.api.ReadableContainer;
@@ -210,6 +203,11 @@ public class RESTFragmentListener implements EventHandler<HTTPRequest, HTTPRespo
 			// not in this rest path
 			if (analyzed == null) {
 				return null;
+			}
+			
+			// if we have chosen this rest service, check if the server is offline
+			if (!webArtifact.getConfig().isIgnoreOffline()) {
+				WebApplicationUtils.checkOffline(webApplication, request);
 			}
 			
 			Map<String, List<String>> queryProperties = URIUtils.getQueryProperties(uri);
@@ -350,7 +348,7 @@ public class RESTFragmentListener implements EventHandler<HTTPRequest, HTTPRespo
 			
 			SourceImpl source = PipelineUtils.getPipeline() == null ? new SourceImpl() : new SourceImpl(PipelineUtils.getPipeline().getSourceContext());
 			// if we are being proxied, get the "actual" data
-			if (request.getContent() != null && webApplication.getConfig().getVirtualHost().getConfig().getServer().getConfig().isProxied()) {
+			if (request.getContent() != null && webApplication.getConfig().getVirtualHost().isProxied()) {
 				source.setRemoteHost(HTTPUtils.getRemoteHost(true, request.getContent().getHeaders()));
 				source.setRemoteIp(HTTPUtils.getRemoteAddress(true, request.getContent().getHeaders()));
 				Header header = MimeUtils.getHeader(ServerHeader.REMOTE_PORT.getName(), request.getContent().getHeaders());
@@ -699,16 +697,16 @@ public class RESTFragmentListener implements EventHandler<HTTPRequest, HTTPRespo
 							cacheInput.set("serverCache/hash", ((CacheWithHash) serviceCache).hash(input));
 						}
 						
-						ServiceRuntime runtime = new ServiceRuntime(cacheService, webApplication.getRepository().newExecutionContext(token));
+						ServiceRuntime cacheRuntime = new ServiceRuntime(cacheService, webApplication.getRepository().newExecutionContext(token));
 						
 						Header correlationHeader = MimeUtils.getHeader("X-Correlation-Id", request.getContent().getHeaders());
 						if (correlationHeader != null) {
-							runtime.setCorrelationId(correlationHeader.getValue());
+							cacheRuntime.setCorrelationId(correlationHeader.getValue());
 						}
 						
 						// we set the service context to the web application, rest services can be mounted in multiple applications
-						ServiceUtils.setServiceContext(runtime, webApplication.getId());
-						ComplexContent cacheOutput = runtime.run(cacheInput);
+						ServiceUtils.setServiceContext(cacheRuntime, webApplication.getId());
+						ComplexContent cacheOutput = cacheRuntime.run(cacheInput);
 						Boolean hasChanged = (Boolean) cacheOutput.get("hasChanged");
 						// for GET requests: unless we explicitly state that it has changed, we assume it hasn't
 						if (isGet && (hasChanged == null || !hasChanged)) {
@@ -791,12 +789,10 @@ public class RESTFragmentListener implements EventHandler<HTTPRequest, HTTPRespo
 				ServiceRuntime runtime = new ServiceRuntime(service, newExecutionContext);
 				// we set the service context to the web application, rest services can be mounted in multiple applications
 				ServiceUtils.setServiceContext(runtime, webApplication.getId());
-				// there seems to be a problem with this in some circumstances though it is entirely unclear as to how/when/why, disabling until i have the time to dig deeper
-				boolean trackRequests = false;
-				// we can use the tracker to report our HTTP shizzles to anyone who might be listening
-				ServiceRuntimeTracker tracker = trackRequests ? newExecutionContext.getServiceContext().getServiceTrackerProvider().getTracker(runtime) : null;
-				if (tracker != null) {
-					tracker.report(HTTPUtils.toMessage(request));
+				
+				HTTPInterceptor interceptor = WebApplicationUtils.getInterceptor(webApplication, runtime);
+				if (interceptor != null) {
+					request = (HTTPRequest) interceptor.intercept(request);
 				}
 				
 				ComplexContent output = runtime.run(input);
@@ -900,15 +896,23 @@ public class RESTFragmentListener implements EventHandler<HTTPRequest, HTTPRespo
 				if (output == null || output.get("content") == null) {
 					// if there is structurally no output, return a 204
 					if (webArtifact.getConfig().getOutput() == null && (webArtifact.getConfig().getOutputAsStream() == null || !webArtifact.getConfig().getOutputAsStream())) {
-						return HTTPUtils.newEmptyResponse(request, headers.toArray(new Header[headers.size()]));
+						HTTPResponse newEmptyResponse = HTTPUtils.newEmptyResponse(request, headers.toArray(new Header[headers.size()]));
+						if (interceptor != null) {
+							newEmptyResponse = (HTTPResponse) interceptor.intercept(newEmptyResponse);
+						}
+						return newEmptyResponse;
 					}
 					// if there is by happenstance no output, return a 200
 					else {
 						List<Header> allHeaders = new ArrayList<Header>();
 						allHeaders.add(new MimeHeader("Content-Length", "0"));
-						return new DefaultHTTPResponse(request, 200, "OK", new PlainMimeEmptyPart(null,
+						HTTPResponse newEmptyResponse = new DefaultHTTPResponse(request, 200, "OK", new PlainMimeEmptyPart(null,
 							allHeaders.toArray(new Header[0])
 						));
+						if (interceptor != null) {
+							newEmptyResponse = (HTTPResponse) interceptor.intercept(newEmptyResponse);
+						}
+						return newEmptyResponse;
 					}
 				}
 				else if (output.get("content") instanceof InputStream) {
@@ -927,7 +931,12 @@ public class RESTFragmentListener implements EventHandler<HTTPRequest, HTTPRespo
 					if (allowEncoding) {
 						HTTPUtils.setContentEncoding(part, request.getContent().getHeaders());
 					}
-					return new DefaultHTTPResponse(request, 200, HTTPCodes.getMessage(200), part);
+					// we can _not_ reopen this one!
+					HTTPResponse streamedResponse = new DefaultHTTPResponse(request, 200, HTTPCodes.getMessage(200), part);
+					if (interceptor != null) {
+						streamedResponse = (HTTPResponse) interceptor.intercept(streamedResponse);
+					}
+					return streamedResponse;
 				}
 				else {
 					Object object = output.get("content");
@@ -940,7 +949,6 @@ public class RESTFragmentListener implements EventHandler<HTTPRequest, HTTPRespo
 						arrayWrapper.add(TypeBaseUtils.clone(webArtifact.getOutputDefinition().get("content"), arrayWrapper));
 						output = arrayWrapper.newInstance();
 						output.set("content", object);
-						System.out.println("doing the tricky thing: " + object);
 					}
 					else {
 						output = object instanceof ComplexContent ? (ComplexContent) object : ComplexContentWrapperFactory.getInstance().getWrapper().wrap(object);
@@ -990,6 +998,8 @@ public class RESTFragmentListener implements EventHandler<HTTPRequest, HTTPRespo
 						IOUtils.wrap(byteArray, true),
 						headers.toArray(new Header[headers.size()])
 					);
+					// we fed it bytes, it can be reopened
+					part.setReopenable(true);
 					if (allowEncoding) {
 						HTTPUtils.setContentEncoding(part, request.getContent().getHeaders());
 					}
@@ -999,7 +1009,7 @@ public class RESTFragmentListener implements EventHandler<HTTPRequest, HTTPRespo
 					Token currentToken = newExecutionContext.getSecurityContext().getToken();
 					// someone upgraded the token
 					if (persistAuthenticationChange && currentToken != null && currentToken.getRealm() != null && currentToken.getRealm().equals(webApplication.getRealm()) && !currentToken.equals(token)) {
-						boolean sslOnly = webApplication.getConfig().getVirtualHost().getConfig().getServer().isSecure();
+						boolean sslOnly = webApplication.getConfig().getVirtualHost().isSecure();
 						if (currentToken instanceof TokenWithSecret) {
 							String secret = ((TokenWithSecret) currentToken).getSecret();
 							// if we have a secret to remember this token, use it
@@ -1042,9 +1052,10 @@ public class RESTFragmentListener implements EventHandler<HTTPRequest, HTTPRespo
 						response.getContent().setHeader(cookieHeader);
 					}
 					
-					if (tracker != null) {
-						tracker.report(HTTPUtils.toMessage(response));
+					if (interceptor != null) {
+						response = (HTTPResponse) interceptor.intercept(response);
 					}
+					
 					return response;
 				}
 			}

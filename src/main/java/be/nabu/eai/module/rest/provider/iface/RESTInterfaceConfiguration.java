@@ -21,7 +21,7 @@ import be.nabu.libs.types.api.annotation.Field;
 @XmlType(propOrder = { "method", "path", "queryParameters", "cookieParameters", "sessionParameters", "headerParameters", "responseHeaders", "roles", "permissionContext", "permissionAction", "preferredResponseType",
 		"asynchronous", "inputAsStream", "outputAsStream", "input", "output", "sanitizeInput", "acceptedLanguages", "configurationType", "device", "token", "lenient", "namingConvention", "webApplicationId", "geoPosition", 
 		"language", "allowFormBinding", "caseInsensitive", "cache", "allowCookiesWithoutReferer", "allowCookiesWithExternalReferer", "request", "allowHeaderAsQueryParameter", "useServerCache", "source", 
-		"allowRaw", "domain", "temporaryAlias", "temporarySecret", "temporaryCorrelationId", "rateLimitContext", "rateLimitAction" })
+		"allowRaw", "domain", "temporaryAlias", "temporarySecret", "temporaryCorrelationId", "rateLimitContext", "rateLimitAction", "ignoreOffline" })
 public class RESTInterfaceConfiguration {
 
 	private DefinedType input, output;
@@ -51,6 +51,8 @@ public class RESTInterfaceConfiguration {
 	private boolean allowCookiesWithoutReferer;
 	// add for completeness sake
 	private boolean allowCookiesWithExternalReferer;
+	// whether or not we want to ignore offline modus
+	private boolean ignoreOffline;
 	
 	// you can allow headers to be put in the query parameter list
 	// this is specifically done to circumvent restrictions in html 4 and previous where it is nearly impossible to do a clean ajax-based download
@@ -293,6 +295,7 @@ public class RESTInterfaceConfiguration {
 		this.request = includeRequest;
 	}
 	
+	@Comment(title = "If you want to create a URL to download the data as a specific type (e.g. excel), you can't manipulate the headers directly to indicate content type, language... By enabling this, you can set a select few headers as a query parameter, specifically 'header:Accept', 'header:Accept-Language' and 'header:'Accept-Content-Disposition'")
 	@Advanced
 	public boolean isAllowHeaderAsQueryParameter() {
 		return allowHeaderAsQueryParameter;
@@ -393,5 +396,14 @@ public class RESTInterfaceConfiguration {
 	public void setGeoPosition(boolean geoPosition) {
 		this.geoPosition = geoPosition;
 	}
-
+	
+	@Advanced
+	@Field(comment = "If you enable this, the REST service will keep responding even if the server is turned offline")
+	public boolean isIgnoreOffline() {
+		return ignoreOffline;
+	}
+	public void setIgnoreOffline(boolean ignoreOffline) {
+		this.ignoreOffline = ignoreOffline;
+	}
+	
 }

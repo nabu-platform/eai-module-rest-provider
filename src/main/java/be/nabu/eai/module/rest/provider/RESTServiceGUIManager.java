@@ -1,6 +1,8 @@
 package be.nabu.eai.module.rest.provider;
 
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -39,6 +41,8 @@ public class RESTServiceGUIManager extends ContainerArtifactGUIManager<RESTServi
 		// add the id of the rest service
 		configuration.put(VMServiceGUIManager.ACTUAL_ID, entry.getId());
 		RESTInterfaceArtifact webRestArtifact = new RESTInterfaceArtifact("$self:api", entry.getContainer(), entry.getRepository());
+		// secure by default
+		webRestArtifact.getConfig().setRoles(new ArrayList<String>(Arrays.asList("$user")));
 		restvmService.addArtifact("api", webRestArtifact, configuration);
 		Pipeline pipeline = new Pipeline(new Structure(), new Structure());
 		pipeline.setProperty(new ValueImpl<DefinedServiceInterface>(PipelineInterfaceProperty.getInstance(), webRestArtifact));
@@ -54,7 +58,7 @@ public class RESTServiceGUIManager extends ContainerArtifactGUIManager<RESTServi
 	
 	@Override
 	public String getCategory() {
-		return "Services";
+		return "REST";
 	}
 	
 	@Override
