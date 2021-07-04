@@ -33,6 +33,7 @@ import be.nabu.libs.authentication.api.Authenticator;
 import be.nabu.libs.authentication.api.Device;
 import be.nabu.libs.authentication.api.DeviceValidator;
 import be.nabu.libs.authentication.api.PermissionHandler;
+import be.nabu.libs.authentication.api.PotentialPermissionHandler;
 import be.nabu.libs.authentication.api.RoleHandler;
 import be.nabu.libs.authentication.api.Token;
 import be.nabu.libs.authentication.api.TokenValidator;
@@ -510,6 +511,9 @@ public class RESTFragmentListener implements EventHandler<HTTPRequest, HTTPRespo
 							if (webArtifact.getConfig().getLenient()) {
 								((JSONBinding) binding).setIgnoreUnknownElements(true);
 							}
+							if (webArtifact.getConfig().isAllowRootArrays()) {
+								((JSONBinding) binding).setIgnoreRootIfArrayWrapper(true);
+							}
 						}
 						// we make an exception for form binding
 						// we usually do not need it (unless supporting ancient html stuff) but it _can_ pose a CSRF security risk if exposed by default
@@ -604,9 +608,11 @@ public class RESTFragmentListener implements EventHandler<HTTPRequest, HTTPRespo
 			
 			// check permissions
 			PermissionHandler permissionHandler = webApplication.getPermissionHandler();
+			PotentialPermissionHandler potentialPermissionHandler = webApplication.getPotentialPermissionHandler();
 			if (permissionHandler != null) {
 				String context = null;
 				String action = null;
+				boolean hasDefinedContext = false;
 				if (webArtifact.getConfig().getPermissionContext() != null) {
 					if (webArtifact.getConfig().getPermissionContext().startsWith("=")) {
 						// we replace any "input/" references as you likely copy pasted it from the interface, it should work the same as the pipeline
@@ -616,6 +622,7 @@ public class RESTFragmentListener implements EventHandler<HTTPRequest, HTTPRespo
 					else {
 						context = webArtifact.getConfig().getPermissionContext();
 					}
+					hasDefinedContext = true;
 				}
 				if (webArtifact.getConfig().getPermissionAction() != null) {
 					if (webArtifact.getConfig().getPermissionAction().startsWith("=")) {
@@ -628,7 +635,15 @@ public class RESTFragmentListener implements EventHandler<HTTPRequest, HTTPRespo
 					}
 				}
 				if (action != null && !permissionHandler.hasPermission(token, context, action)) {
-					throw new HTTPException(token == null ? 401 : 403, "User does not have permission to execute the rest service", "User '" + (token == null ? Authenticator.ANONYMOUS : token.getName()) + "' does not have permission to '" + request.getMethod().toLowerCase() + "' on '" + path + "' with service: " + service.getId(), token);
+					boolean allowed = false;
+					// if we don't have permission to run it as is, but we have explicitly (at design time) decided not to fill in a context
+					// we check the potential permissions as well
+					if (!hasDefinedContext && potentialPermissionHandler != null) {
+						allowed = potentialPermissionHandler.hasPotentialPermission(token, action);
+					}
+					if (!allowed) {
+						throw new HTTPException(token == null ? 401 : 403, "User does not have permission to execute the rest service", "User '" + (token == null ? Authenticator.ANONYMOUS : token.getName()) + "' does not have permission to '" + request.getMethod().toLowerCase() + "' on '" + path + "' with service: " + service.getId(), token);
+					}
 				}
 			}
 			

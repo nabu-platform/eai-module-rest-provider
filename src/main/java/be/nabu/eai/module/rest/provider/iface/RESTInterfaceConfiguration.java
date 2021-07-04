@@ -21,7 +21,7 @@ import be.nabu.libs.types.api.annotation.Field;
 @XmlType(propOrder = { "method", "path", "queryParameters", "cookieParameters", "sessionParameters", "headerParameters", "responseHeaders", "roles", "permissionContext", "permissionAction", "preferredResponseType",
 		"asynchronous", "inputAsStream", "outputAsStream", "input", "output", "sanitizeInput", "acceptedLanguages", "configurationType", "device", "token", "lenient", "namingConvention", "webApplicationId", "geoPosition", 
 		"language", "allowFormBinding", "caseInsensitive", "cache", "allowCookiesWithoutReferer", "allowCookiesWithExternalReferer", "request", "allowHeaderAsQueryParameter", "useServerCache", "source", 
-		"allowRaw", "domain", "temporaryAlias", "temporarySecret", "temporaryCorrelationId", "rateLimitContext", "rateLimitAction", "ignoreOffline" })
+		"allowRaw", "domain", "temporaryAlias", "temporarySecret", "temporaryCorrelationId", "rateLimitContext", "rateLimitAction", "ignoreOffline", "allowRootArrays" })
 public class RESTInterfaceConfiguration {
 
 	private DefinedType input, output;
@@ -59,6 +59,9 @@ public class RESTInterfaceConfiguration {
 	// in html 5 you can serialize the data and download it using an injected "a" tag with download attribute, but IE support is lacking in this regard (and edge only since build 14)
 	// note that this can also be a nifty feature when simply sending a link to someone as you have no control over the headers they send to retrieve it
 	private boolean allowHeaderAsQueryParameter;
+	
+	// in JSON you can allow arrays at the root of your object...
+	private boolean allowRootArrays;
 	
 	private DefinedType configurationType;
 
@@ -405,5 +408,16 @@ public class RESTInterfaceConfiguration {
 	public void setIgnoreOffline(boolean ignoreOffline) {
 		this.ignoreOffline = ignoreOffline;
 	}
+	
+	@Advanced
+	@Field(comment = "Enable this if you are using JSON and you want to be able to receive a request that has an array as the root. Note that your defined type must have a single array at the root of the content.")
+	public boolean isAllowRootArrays() {
+		return allowRootArrays;
+	}
+	public void setAllowRootArrays(boolean allowRootArrays) {
+		this.allowRootArrays = allowRootArrays;
+	}
+	
+	
 	
 }
