@@ -21,7 +21,7 @@ import be.nabu.libs.types.api.annotation.Field;
 @XmlType(propOrder = { "method", "path", "queryParameters", "cookieParameters", "sessionParameters", "headerParameters", "responseHeaders", "roles", "permissionContext", "permissionAction", "preferredResponseType",
 		"asynchronous", "inputAsStream", "outputAsStream", "input", "output", "sanitizeInput", "acceptedLanguages", "configurationType", "device", "token", "lenient", "namingConvention", "webApplicationId", "geoPosition", 
 		"language", "allowFormBinding", "caseInsensitive", "cache", "allowCookiesWithoutReferer", "allowCookiesWithExternalReferer", "request", "allowHeaderAsQueryParameter", "useServerCache", "source", 
-		"allowRaw", "domain", "temporaryAlias", "temporarySecret", "temporaryCorrelationId", "rateLimitContext", "rateLimitAction", "ignoreOffline", "allowRootArrays" })
+		"allowRaw", "domain", "temporaryAlias", "temporarySecret", "temporaryCorrelationId", "rateLimitContext", "rateLimitAction", "ignoreOffline", "allowRootArrays", "captureErrors", "captureSuccessful" })
 public class RESTInterfaceConfiguration {
 
 	private DefinedType input, output;
@@ -53,6 +53,9 @@ public class RESTInterfaceConfiguration {
 	private boolean allowCookiesWithExternalReferer;
 	// whether or not we want to ignore offline modus
 	private boolean ignoreOffline;
+	
+	// in the future we may want to add queries so you can do this more fine grainedly
+	private boolean captureErrors, captureSuccessful; 
 	
 	// you can allow headers to be put in the query parameter list
 	// this is specifically done to circumvent restrictions in html 4 and previous where it is nearly impossible to do a clean ajax-based download
@@ -418,6 +421,19 @@ public class RESTInterfaceConfiguration {
 		this.allowRootArrays = allowRootArrays;
 	}
 	
-	
+	@Field(group = "logging")
+	public boolean isCaptureErrors() {
+		return captureErrors;
+	}
+	public void setCaptureErrors(boolean captureErrors) {
+		this.captureErrors = captureErrors;
+	}
+	@Field(group = "logging")
+	public boolean isCaptureSuccessful() {
+		return captureSuccessful;
+	}
+	public void setCaptureSuccessful(boolean captureSuccessful) {
+		this.captureSuccessful = captureSuccessful;
+	}
 	
 }

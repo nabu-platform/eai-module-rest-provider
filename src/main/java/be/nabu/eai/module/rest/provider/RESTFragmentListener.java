@@ -181,6 +181,7 @@ public class RESTFragmentListener implements EventHandler<HTTPRequest, HTTPRespo
 	public HTTPResponse handle(HTTPRequest request) {
 		Token token = null;
 		Device device = null;
+		boolean isForThisService = false;
 		try {
 			ServiceRuntime.setGlobalContext(new HashMap<String, Object>());
 			ServiceRuntime.getGlobalContext().put("service.context", webApplication.getId());
@@ -205,6 +206,8 @@ public class RESTFragmentListener implements EventHandler<HTTPRequest, HTTPRespo
 			if (analyzed == null) {
 				return null;
 			}
+			
+			isForThisService = true;
 			
 			// if we have chosen this rest service, check if the server is offline
 			if (!webArtifact.getConfig().isIgnoreOffline()) {
@@ -1076,18 +1079,27 @@ public class RESTFragmentListener implements EventHandler<HTTPRequest, HTTPRespo
 			}
 		}
 		catch (FormatException e) {
+			if (isForThisService) {
+				toggleLogging(request, e);
+			}
 			HTTPException httpException = new HTTPException(500, "Could not execute service", "Could not execute service: " + service.getId(), e, token);
 			httpException.getContext().addAll(Arrays.asList(webApplication.getId(), service.getId()));
 			httpException.setDevice(device);
 			throw httpException;
 		}
 		catch (IOException e) {
+			if (isForThisService) {
+				toggleLogging(request, e);
+			}
 			HTTPException httpException = new HTTPException(500, "Could not execute service", "Could not execute service: " + service.getId(), e, token);
 			httpException.getContext().addAll(Arrays.asList(webApplication.getId(), service.getId()));
 			httpException.setDevice(device);
 			throw httpException;
 		}
 		catch (ServiceException e) {
+			if (isForThisService) {
+				toggleLogging(request, e);
+			}
 			HTTPException httpException;
 			if (ServiceRuntime.NO_AUTHORIZATION.equals(e.getCode())) {
 				httpException = new HTTPException(403, "User does not have permission to execute the rest service", "User '" + (token == null ? Authenticator.ANONYMOUS : token.getName()) + "' does not have permission to '" + request.getMethod().toLowerCase() + "' with service: " + service.getId(), e, token);
@@ -1107,6 +1119,9 @@ public class RESTFragmentListener implements EventHandler<HTTPRequest, HTTPRespo
 			throw httpException;
 		}
 		catch (HTTPException e) {
+			if (isForThisService) {
+				toggleLogging(request, e);
+			}
 			if (e.getToken() == null) {
 				e.setToken(token);
 			}
@@ -1117,13 +1132,33 @@ public class RESTFragmentListener implements EventHandler<HTTPRequest, HTTPRespo
 			throw e;
 		}
 		catch (Exception e) {
+			if (isForThisService) {
+				toggleLogging(request, e);
+			}
 			HTTPException httpException = new HTTPException(500, "Could not execute service", "Could not execute service: " + service.getId(), e, token);
 			httpException.getContext().addAll(Arrays.asList(webApplication.getId(), service.getId()));
 			httpException.setDevice(device);
 			throw httpException;
 		}
 		finally {
+			// make sure we log the successful
+			if (isForThisService) {
+				toggleLogging(request, null);
+			}
 			ServiceRuntime.setGlobalContext(null);
+		}
+	}
+	
+	private void toggleLogging(HTTPRequest request, Throwable exception) {
+		if ((exception != null && webArtifact.getConfig().isCaptureErrors()) || (exception == null && webArtifact.getConfig().isCaptureSuccessful())) {
+			if (service != null && MimeUtils.getHeader("X-Nabu-Log", request.getContent().getHeaders()) == null) {
+				try {
+					request.getContent().setHeader(MimeHeader.parseHeader("X-Nabu-Log: " + (exception == null ? "info" : "error") + ";artifactId=" + service.getId() + ";rawHttp=true"));
+				}
+				catch (Exception e) {
+					logger.warn("Could not set logging header", e);
+				}
+			}
 		}
 	}
 	
