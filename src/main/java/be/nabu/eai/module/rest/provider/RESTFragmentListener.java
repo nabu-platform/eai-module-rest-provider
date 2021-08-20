@@ -238,7 +238,8 @@ public class RESTFragmentListener implements EventHandler<HTTPRequest, HTTPRespo
 			String contentType = contentTypeHeader == null ? null : contentTypeHeader.getValue().trim().replaceAll(";.*$", "");
 			
 			// text/plain is allowed in HTML5 (https://developer.mozilla.org/en-US/docs/Web/HTML/Element/form)
-			if (contentType != null && (WebResponseType.FORM_ENCODED.getMimeType().equalsIgnoreCase(contentType) || "multipart/form-data".equalsIgnoreCase(contentType)) || "text/plain".equalsIgnoreCase(contentType)) {
+			// if we have an input as stream however, it is still allowed because we don't really care about the content type
+			if (contentType != null && (webArtifact.getConfig().getInputAsStream() == null || webArtifact.getConfig().getInputAsStream() == false) && (WebResponseType.FORM_ENCODED.getMimeType().equalsIgnoreCase(contentType) || "multipart/form-data".equalsIgnoreCase(contentType)) || "text/plain".equalsIgnoreCase(contentType)) {
 				if (!webArtifact.getConfig().isAllowFormBinding()) {
 					throw new HTTPException(415, "Form binding not allowed", "Form binding not allowed: " + contentType, token);
 				}
