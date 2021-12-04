@@ -185,6 +185,7 @@ public class RESTFragmentListener implements EventHandler<HTTPRequest, HTTPRespo
 		try {
 			ServiceRuntime.setGlobalContext(new HashMap<String, Object>());
 			ServiceRuntime.getGlobalContext().put("service.context", webApplication.getId());
+			ServiceRuntime.getGlobalContext().put("webApplicationId", webApplication.getId());
 			ServiceRuntime.getGlobalContext().put("service.source", "rest");
 			// stop fast if wrong method
 			if (webArtifact.getConfiguration().getMethod() != null && !webArtifact.getConfiguration().getMethod().toString().equalsIgnoreCase(request.getMethod())) {
@@ -725,6 +726,7 @@ public class RESTFragmentListener implements EventHandler<HTTPRequest, HTTPRespo
 						
 						// we set the service context to the web application, rest services can be mounted in multiple applications
 						ServiceUtils.setServiceContext(cacheRuntime, webApplication.getId());
+						cacheRuntime.getContext().put("webApplicationId", webApplication.getId());
 						ComplexContent cacheOutput = cacheRuntime.run(cacheInput);
 						Boolean hasChanged = (Boolean) cacheOutput.get("hasChanged");
 						// for GET requests: unless we explicitly state that it has changed, we assume it hasn't
@@ -808,6 +810,7 @@ public class RESTFragmentListener implements EventHandler<HTTPRequest, HTTPRespo
 				ServiceRuntime runtime = new ServiceRuntime(service, newExecutionContext);
 				// we set the service context to the web application, rest services can be mounted in multiple applications
 				ServiceUtils.setServiceContext(runtime, webApplication.getId());
+				runtime.getContext().put("webApplicationId", webApplication.getId());
 				
 				HTTPInterceptor interceptor = WebApplicationUtils.getInterceptor(webApplication, runtime);
 				if (interceptor != null) {
