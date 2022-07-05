@@ -324,7 +324,9 @@ public class RESTGenerateContextMenu implements EntryContextMenuProvider {
 					});
 				}
 			});
-			return item;
+			// massively deprecated...
+			return null;
+//			return item;
 		}
 		return null;
 	}
