@@ -104,6 +104,10 @@ import be.nabu.utils.mime.impl.MimeUtils;
 import be.nabu.utils.mime.impl.PlainMimeContentPart;
 import be.nabu.utils.mime.impl.PlainMimeEmptyPart;
 
+/**
+ * Security checks are ALWAYS run in he "default" service context (which is the application itself)
+ * However, the user CAN request a different service context for the final service run. The ability to switch the context is itself behind a permission check in the default service context.
+ */
 public class RESTFragmentListener implements EventHandler<HTTPRequest, HTTPResponse> {
 
 	private Logger logger = LoggerFactory.getLogger(getClass());
@@ -587,7 +591,8 @@ public class RESTFragmentListener implements EventHandler<HTTPRequest, HTTPRespo
 					}
 					// this trumps any other token
 					// first check for a specific token for this service
-					token = temporaryAuthenticator.authenticate(webApplication.getRealm(), new TemporaryAuthenticationImpl(alias, secret), device, service.getId(), correlationId);
+					// note that we prefix it with execution because the user can request it for "any" service we don't want him to be able to request for instance "authentication"
+					token = temporaryAuthenticator.authenticate(webApplication.getRealm(), new TemporaryAuthenticationImpl(alias, secret), device, TemporaryAuthenticator.EXECUTION + ":" + service.getId(), correlationId);
 					if (token == null) {
 						// otherwise, check if there is a broader "execution" token
 						token = temporaryAuthenticator.authenticate(webApplication.getRealm(), new TemporaryAuthenticationImpl(alias, secret), device, TemporaryAuthenticator.EXECUTION, correlationId);
@@ -611,6 +616,8 @@ public class RESTFragmentListener implements EventHandler<HTTPRequest, HTTPRespo
 				}
 			}
 			
+			String serviceContext = WebApplicationUtils.getServiceContext(token, webApplication, request);
+			
 			// check permissions
 			PermissionHandler permissionHandler = webApplication.getPermissionHandler();
 			PotentialPermissionHandler potentialPermissionHandler = webApplication.getPotentialPermissionHandler();
@@ -627,6 +634,15 @@ public class RESTFragmentListener implements EventHandler<HTTPRequest, HTTPRespo
 					else {
 						context = webArtifact.getConfig().getPermissionContext();
 					}
+					hasDefinedContext = true;
+				}
+				else if (webArtifact.getConfig().isUseServiceContextAsPermissionContext()) {
+					// we use the potentially final service context that will be used to run the service, this may have been altered from the standard one used to execute these services
+					context = "context:" + serviceContext;
+					hasDefinedContext = true;
+				}
+				else if (webArtifact.getConfig().isUseWebApplicationAsPermissionContext()) {
+					context = "context:" + webApplication.getId();
 					hasDefinedContext = true;
 				}
 				if (webArtifact.getConfig().getPermissionAction() != null) {
@@ -725,7 +741,10 @@ public class RESTFragmentListener implements EventHandler<HTTPRequest, HTTPRespo
 						}
 						
 						// we set the service context to the web application, rest services can be mounted in multiple applications
-						ServiceUtils.setServiceContext(cacheRuntime, webApplication.getId());
+//						ServiceUtils.setServiceContext(cacheRuntime, webApplication.getId());
+						// get the smarter service context
+						ServiceUtils.setServiceContext(cacheRuntime, serviceContext);
+						
 						cacheRuntime.getContext().put("webApplicationId", webApplication.getId());
 						ComplexContent cacheOutput = cacheRuntime.run(cacheInput);
 						Boolean hasChanged = (Boolean) cacheOutput.get("hasChanged");
@@ -809,7 +828,11 @@ public class RESTFragmentListener implements EventHandler<HTTPRequest, HTTPRespo
 			else {
 				ServiceRuntime runtime = new ServiceRuntime(service, newExecutionContext);
 				// we set the service context to the web application, rest services can be mounted in multiple applications
-				ServiceUtils.setServiceContext(runtime, webApplication.getId());
+//				ServiceUtils.setServiceContext(runtime, webApplication.getId());
+				
+				// get the smarter service context
+				ServiceUtils.setServiceContext(runtime, serviceContext);
+				
 				runtime.getContext().put("webApplicationId", webApplication.getId());
 				
 				HTTPInterceptor interceptor = WebApplicationUtils.getInterceptor(webApplication, runtime);
@@ -927,6 +950,7 @@ public class RESTFragmentListener implements EventHandler<HTTPRequest, HTTPRespo
 					// if there is by happenstance no output, return a 200
 					else {
 						List<Header> allHeaders = new ArrayList<Header>();
+						allHeaders.addAll(headers);
 						allHeaders.add(new MimeHeader("Content-Length", "0"));
 						HTTPResponse newEmptyResponse = new DefaultHTTPResponse(request, 200, "OK", new PlainMimeEmptyPart(null,
 							allHeaders.toArray(new Header[0])

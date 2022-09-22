@@ -18,7 +18,7 @@ import be.nabu.libs.types.api.DefinedType;
 import be.nabu.libs.types.api.annotation.Field;
 
 @XmlRootElement(name = "restInterface")
-@XmlType(propOrder = { "method", "path", "queryParameters", "cookieParameters", "sessionParameters", "headerParameters", "responseHeaders", "roles", "permissionContext", "permissionAction", "preferredResponseType",
+@XmlType(propOrder = { "method", "path", "queryParameters", "cookieParameters", "sessionParameters", "headerParameters", "responseHeaders", "roles", "permissionAction", "permissionContext", "useServiceContextAsPermissionContext", "useWebApplicationAsPermissionContext", "preferredResponseType",
 		"asynchronous", "inputAsStream", "outputAsStream", "input", "output", "sanitizeInput", "acceptedLanguages", "configurationType", "device", "token", "lenient", "namingConvention", "webApplicationId", "geoPosition", 
 		"language", "allowFormBinding", "caseInsensitive", "cache", "allowCookiesWithoutReferer", "allowCookiesWithExternalReferer", "request", "allowHeaderAsQueryParameter", "useServerCache", "source", 
 		"allowRaw", "domain", "temporaryAlias", "temporarySecret", "temporaryCorrelationId", "rateLimitContext", "rateLimitAction", "ignoreOffline", "allowRootArrays", "captureErrors", "captureSuccessful" })
@@ -65,6 +65,9 @@ public class RESTInterfaceConfiguration {
 	
 	// in JSON you can allow arrays at the root of your object...
 	private boolean allowRootArrays;
+	
+	// you can configure the rest service to use the current service context as the permission context for security checks
+	private boolean useServiceContextAsPermissionContext, useWebApplicationAsPermissionContext;
 	
 	private DefinedType configurationType;
 
@@ -195,12 +198,26 @@ public class RESTInterfaceConfiguration {
 	public void setConfigurationType(DefinedType configurationType) {
 		this.configurationType = configurationType;
 	}
-	@Field(group = "security")
+	@Field(group = "security", hide = "useServiceContextAsPermissionContext == true || useWebApplicationAsPermissionContext == true")
 	public String getPermissionContext() {
 		return permissionContext;
 	}
 	public void setPermissionContext(String permissionContext) {
 		this.permissionContext = permissionContext;
+	}
+	@Field(group = "security", hide = "permissionContext != null || useWebApplicationAsPermissionContext == true")
+	public boolean isUseServiceContextAsPermissionContext() {
+		return useServiceContextAsPermissionContext;
+	}
+	public void setUseServiceContextAsPermissionContext(boolean useServiceContextAsPermissionContext) {
+		this.useServiceContextAsPermissionContext = useServiceContextAsPermissionContext;
+	}
+	@Field(group = "security", hide = "permissionContext != null || useServiceContextAsPermissionContext == true")
+	public boolean isUseWebApplicationAsPermissionContext() {
+		return useWebApplicationAsPermissionContext;
+	}
+	public void setUseWebApplicationAsPermissionContext(boolean useWebApplicationAsPermissionContext) {
+		this.useWebApplicationAsPermissionContext = useWebApplicationAsPermissionContext;
 	}
 	@Field(group = "security")
 	public String getPermissionAction() {
