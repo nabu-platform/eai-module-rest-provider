@@ -288,7 +288,7 @@ public class RESTFragmentListener implements EventHandler<HTTPRequest, HTTPRespo
 			// only use the cookies if we have a referer match (or are in development modus, it makes debugging slightly easier)
 			Map<String, List<String>> cookies = refererMatch || EAIResourceRepository.isDevelopment() ? HTTPUtils.getCookies(request.getContent().getHeaders()) : new HashMap<String, List<String>>();
 			String originalSessionId = GlueListener.getSessionId(cookies);
-			Session session = originalSessionId == null ? null : webApplication.getSessionProvider().getSession(originalSessionId);
+			Session session = originalSessionId == null || webApplication.getSessionProvider() == null ? null : webApplication.getSessionProvider().getSession(originalSessionId);
 			
 			// authentication tokens in the request get precedence over session-based authentication
 			AuthenticationHeader authenticationHeader = HTTPUtils.getAuthenticationHeader(request);
