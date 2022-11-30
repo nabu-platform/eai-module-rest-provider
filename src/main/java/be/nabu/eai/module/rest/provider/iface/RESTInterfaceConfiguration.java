@@ -18,7 +18,7 @@ import be.nabu.libs.types.api.DefinedType;
 import be.nabu.libs.types.api.annotation.Field;
 
 @XmlRootElement(name = "restInterface")
-@XmlType(propOrder = { "method", "path", "queryParameters", "cookieParameters", "sessionParameters", "headerParameters", "responseHeaders", "roles", "permissionAction", "permissionContext", "useServiceContextAsPermissionContext", "useWebApplicationAsPermissionContext", "preferredResponseType",
+@XmlType(propOrder = { "method", "path", "queryParameters", "cookieParameters", "sessionParameters", "headerParameters", "responseHeaders", "roles", "permissionAction", "permissionContext", "useServiceContextAsPermissionContext", "useWebApplicationAsPermissionContext", "useProjectAsPermissionContext", "useGlobalPermissionContext", "preferredResponseType",
 		"asynchronous", "inputAsStream", "outputAsStream", "input", "output", "sanitizeInput", "acceptedLanguages", "configurationType", "device", "token", "lenient", "namingConvention", "webApplicationId", "geoPosition", 
 		"language", "allowFormBinding", "caseInsensitive", "cache", "allowCookiesWithoutReferer", "allowCookiesWithExternalReferer", "request", "allowHeaderAsQueryParameter", "useServerCache", "source", 
 		"allowRaw", "domain", "temporaryAlias", "temporarySecret", "temporaryCorrelationId", "rateLimitContext", "rateLimitAction", "ignoreOffline", "allowRootArrays", "captureErrors", "captureSuccessful" })
@@ -67,7 +67,7 @@ public class RESTInterfaceConfiguration {
 	private boolean allowRootArrays;
 	
 	// you can configure the rest service to use the current service context as the permission context for security checks
-	private boolean useServiceContextAsPermissionContext, useWebApplicationAsPermissionContext;
+	private boolean useServiceContextAsPermissionContext, useWebApplicationAsPermissionContext, useProjectAsPermissionContext, useGlobalPermissionContext;
 	
 	private DefinedType configurationType;
 
@@ -198,21 +198,21 @@ public class RESTInterfaceConfiguration {
 	public void setConfigurationType(DefinedType configurationType) {
 		this.configurationType = configurationType;
 	}
-	@Field(group = "security", hide = "useServiceContextAsPermissionContext == true || useWebApplicationAsPermissionContext == true")
+	@Field(group = "security", hide = "useServiceContextAsPermissionContext == true || useWebApplicationAsPermissionContext == true || useProjectAsPermissionContext == true || useGlobalPermissionContext == true")
 	public String getPermissionContext() {
 		return permissionContext;
 	}
 	public void setPermissionContext(String permissionContext) {
 		this.permissionContext = permissionContext;
 	}
-	@Field(group = "security", hide = "permissionContext != null || useWebApplicationAsPermissionContext == true")
+	@Field(group = "security", hide = "permissionContext != null || useWebApplicationAsPermissionContext == true || useProjectAsPermissionContext == true || useGlobalPermissionContext == true")
 	public boolean isUseServiceContextAsPermissionContext() {
 		return useServiceContextAsPermissionContext;
 	}
 	public void setUseServiceContextAsPermissionContext(boolean useServiceContextAsPermissionContext) {
 		this.useServiceContextAsPermissionContext = useServiceContextAsPermissionContext;
 	}
-	@Field(group = "security", hide = "permissionContext != null || useServiceContextAsPermissionContext == true")
+	@Field(group = "security", hide = "permissionContext != null || useServiceContextAsPermissionContext == true || useProjectAsPermissionContext == true || useGlobalPermissionContext == true")
 	public boolean isUseWebApplicationAsPermissionContext() {
 		return useWebApplicationAsPermissionContext;
 	}
@@ -452,5 +452,22 @@ public class RESTInterfaceConfiguration {
 	public void setCaptureSuccessful(boolean captureSuccessful) {
 		this.captureSuccessful = captureSuccessful;
 	}
+	
+	@Field(group = "security", hide = "permissionContext != null || useServiceContextAsPermissionContext == true || useWebApplicationAsPermissionContext == true || useGlobalPermissionContext == true")
+	public boolean isUseProjectAsPermissionContext() {
+		return useProjectAsPermissionContext;
+	}
+	public void setUseProjectAsPermissionContext(boolean useProjectAsPermissionContext) {
+		this.useProjectAsPermissionContext = useProjectAsPermissionContext;
+	}
+	
+	@Field(group = "security", hide = "permissionContext != null || useServiceContextAsPermissionContext == true || useWebApplicationAsPermissionContext == true || useProjectAsPermissionContext == true")
+	public boolean isUseGlobalPermissionContext() {
+		return useGlobalPermissionContext;
+	}
+	public void setUseGlobalPermissionContext(boolean useGlobalPermissionContext) {
+		this.useGlobalPermissionContext = useGlobalPermissionContext;
+	}
+	
 	
 }

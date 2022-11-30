@@ -27,6 +27,7 @@ import be.nabu.eai.module.web.application.TemporaryAuthenticationImpl;
 import be.nabu.eai.module.web.application.WebApplication;
 import be.nabu.eai.module.web.application.WebApplicationUtils;
 import be.nabu.eai.module.web.application.api.TemporaryAuthenticator;
+import be.nabu.eai.repository.EAIRepositoryUtils;
 import be.nabu.eai.repository.EAIResourceRepository;
 import be.nabu.eai.repository.Notification;
 import be.nabu.libs.authentication.api.Authenticator;
@@ -563,7 +564,7 @@ public class RESTFragmentListener implements EventHandler<HTTPRequest, HTTPRespo
 				String alias = null, secret = null, correlationId = null;
 				if (webArtifact.getConfig().getTemporaryAlias().startsWith("=")) {
 					Object result = getVariable(input, webArtifact.getConfig().getTemporaryAlias().substring(1).replaceAll("\\binput/", ""));
-					alias = result == null ? null : result.toString();
+					alias = result == null ? null : ConverterFactory.getInstance().getConverter().convert(result, String.class);
 				}
 				else {
 					alias = webArtifact.getConfig().getTemporaryAlias();
@@ -574,7 +575,7 @@ public class RESTFragmentListener implements EventHandler<HTTPRequest, HTTPRespo
 					if (webArtifact.getConfig().getTemporarySecret() != null) {
 						if (webArtifact.getConfig().getTemporarySecret().startsWith("=")) {
 							Object result = getVariable(input, webArtifact.getConfig().getTemporarySecret().substring(1).replaceAll("\\binput/", ""));
-							secret = result == null ? null : result.toString();
+							secret = result == null ? null : ConverterFactory.getInstance().getConverter().convert(result, String.class);
 						}
 						else {
 							secret = webArtifact.getConfig().getTemporarySecret();
@@ -583,7 +584,7 @@ public class RESTFragmentListener implements EventHandler<HTTPRequest, HTTPRespo
 					if (webArtifact.getConfig().getTemporaryCorrelationId() != null) {
 						if (webArtifact.getConfig().getTemporaryCorrelationId().startsWith("=")) {
 							Object result = getVariable(input, webArtifact.getConfig().getTemporaryCorrelationId().substring(1).replaceAll("\\binput/", ""));
-							correlationId = result == null ? null : result.toString();
+							correlationId = result == null ? null : ConverterFactory.getInstance().getConverter().convert(result, String.class);
 						}
 						else {
 							correlationId = webArtifact.getConfig().getTemporaryCorrelationId();
@@ -616,7 +617,15 @@ public class RESTFragmentListener implements EventHandler<HTTPRequest, HTTPRespo
 				}
 			}
 			
-			String serviceContext = WebApplicationUtils.getServiceContext(token, webApplication, request);
+			boolean outputAsStream = webArtifact.getConfig().getOutputAsStream() != null && webArtifact.getConfig().getOutputAsStream();
+			
+			// the actual context switching permission HAS to be executed against the original context
+			// note that IF you have an output as stream, we allow setting the service context as a query parameter
+			// this should not really open a security hole because the security of service context switching is tightly regulated, but we don't want to advertise this capability in general
+			String serviceContext = WebApplicationUtils.getServiceContext(token, webApplication, request, outputAsStream ? "$serviceContext" : null);
+			
+			// after that, authorization is handled by the target connection
+			ServiceRuntime.getGlobalContext().put("service.context", serviceContext);
 			
 			// check permissions
 			PermissionHandler permissionHandler = webApplication.getPermissionHandler();
@@ -645,6 +654,15 @@ public class RESTFragmentListener implements EventHandler<HTTPRequest, HTTPRespo
 					context = "context:" + webApplication.getId();
 					hasDefinedContext = true;
 				}
+				else if (webArtifact.getConfig().isUseProjectAsPermissionContext()) {
+//					String projectId = project == null ? webArtifact.getId().replaceAll("^([^.]+)\\..*$", "$1") : project.getId();
+					context = "context:" + EAIRepositoryUtils.getProject(webArtifact.getRepository().getEntry(service.getId())).getId();
+					hasDefinedContext = true;
+				}
+				else if (webArtifact.getConfig().isUseGlobalPermissionContext()) {
+					context = "context:$global";
+					hasDefinedContext = true;
+				}
 				if (webArtifact.getConfig().getPermissionAction() != null) {
 					if (webArtifact.getConfig().getPermissionAction().startsWith("=")) {
 						// we replace any "input/" references as you likely copy pasted it from the interface, it should work the same as the pipeline
@@ -667,6 +685,9 @@ public class RESTFragmentListener implements EventHandler<HTTPRequest, HTTPRespo
 					}
 				}
 			}
+			
+			// switch back to the web application context for rate limiting!
+			ServiceRuntime.getGlobalContext().put("service.context", webApplication.getId());
 			
 			// let's not bother with rate limiting if it isn't filled in
 			if (webApplication.getRateLimiter() != null) {
@@ -827,6 +848,8 @@ public class RESTFragmentListener implements EventHandler<HTTPRequest, HTTPRespo
 			}
 			else {
 				ServiceRuntime runtime = new ServiceRuntime(service, newExecutionContext);
+				runtime.setSlaProvider(webApplication);
+				
 				// we set the service context to the web application, rest services can be mounted in multiple applications
 //				ServiceUtils.setServiceContext(runtime, webApplication.getId());
 				
