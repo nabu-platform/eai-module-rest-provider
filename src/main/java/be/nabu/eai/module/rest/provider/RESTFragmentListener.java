@@ -222,6 +222,8 @@ public class RESTFragmentListener implements EventHandler<HTTPRequest, HTTPRespo
 			
 			Map<String, List<String>> queryProperties = URIUtils.getQueryProperties(uri);
 			
+			// if we are using overrides, we also want to allow service context via header
+			boolean usingHeaderOverrides = false;
 			// if we allow (some) headers as query parameter, override the request
 			// we currently allow you to fixate the "accept" to determine the return type, the language and the content disposition (to force a download)
 			if (webArtifact.getConfig().isAllowHeaderAsQueryParameter()) {
@@ -230,6 +232,7 @@ public class RESTFragmentListener implements EventHandler<HTTPRequest, HTTPRespo
 						String headerName = key.substring("header:".length());
 						for (String allowed : Arrays.asList("Accept", "Accept-Language", "Accept-Content-Disposition")) {
 							if (headerName.equalsIgnoreCase(allowed)) {
+								usingHeaderOverrides = true;
 								request.getContent().removeHeader(allowed);
 								request.getContent().setHeader(MimeHeader.parseHeader(allowed + ":" + queryProperties.get(key).get(0)));
 								break;
@@ -450,7 +453,19 @@ public class RESTFragmentListener implements EventHandler<HTTPRequest, HTTPRespo
 			if (input.getType().get("cookie") != null) {
 				for (Element<?> element : TypeUtils.getAllChildren((ComplexType) input.getType().get("cookie").getType())) {
 					try {
-						input.set("cookie/" + element.getName(), sanitize(cookies.get(element.getName()), sanitizeInput));
+						List<String> value = cookies.get(element.getName());
+						// in some cases you can get multiple cookies with the same name on different paths.
+						// however, it is hard to distinguish between them because said path info is not supplied by the browser
+						// if you request a list of cookies, it doesn't matter, but if you specifically request one cookie, we want to take the first one
+						// according to RFC 6265 user agents should sort the cookies according to most specific path first:
+						// The user agent SHOULD sort the cookie-list in the following order:
+						// Cookies with longer paths are listed before cookies with shorter paths.
+						// Among cookies that have equal-length path fields, cookies with earlier creation-times are listed before cookies with later creation-times.
+						// NOTE: Not all user agents sort the cookie-list in this order, but this order reflects common practice when this document was written, and, historically, there have been servers that (erroneously) depended on this order.
+						if (!element.getType().isList(element.getProperties()) && value != null && value.size() >= 2) {
+							value = value.subList(0, 1);
+						}
+						input.set("cookie/" + element.getName(), sanitize(value, sanitizeInput));
 					}
 					catch (Exception e) {
 						throw new HTTPException(500, "Could not set cookie value", "Could not set cookie value: " + element.getName() + " = " + cookies.get(element.getName()), e, token);
@@ -622,7 +637,7 @@ public class RESTFragmentListener implements EventHandler<HTTPRequest, HTTPRespo
 			// the actual context switching permission HAS to be executed against the original context
 			// note that IF you have an output as stream, we allow setting the service context as a query parameter
 			// this should not really open a security hole because the security of service context switching is tightly regulated, but we don't want to advertise this capability in general
-			String serviceContext = WebApplicationUtils.getServiceContext(token, webApplication, request, outputAsStream ? "$serviceContext" : null);
+			String serviceContext = WebApplicationUtils.getServiceContext(token, webApplication, request, outputAsStream || usingHeaderOverrides ? "$serviceContext" : null);
 			
 			// after that, authorization is handled by the target connection
 			ServiceRuntime.getGlobalContext().put("service.context", serviceContext);
@@ -693,11 +708,18 @@ public class RESTFragmentListener implements EventHandler<HTTPRequest, HTTPRespo
 			if (webApplication.getRateLimiter() != null) {
 				String rateLimitAction = webArtifact.getConfig().getRateLimitAction();
 				if (rateLimitAction == null) {
+					rateLimitAction = webArtifact.getConfig().getPermissionAction();
+				}
+				if (rateLimitAction == null) {
 					rateLimitAction = service.getId();
 				}
 				String rateLimitContext = webArtifact.getConfig().getRateLimitContext();
+				// if you explicitly configured an action, we don't fall back to permissions
+				if (rateLimitContext == null && webArtifact.getConfig().getRateLimitAction() == null) {
+					rateLimitContext = webArtifact.getConfig().getPermissionContext();
+				}
 				if (rateLimitContext != null && rateLimitContext.startsWith("=")) {
-					Object result = getVariable(input, webArtifact.getConfig().getRateLimitContext().substring(1).replaceAll("\\binput/", ""));
+					Object result = getVariable(input, rateLimitContext.substring(1).replaceAll("\\binput/", ""));
 					rateLimitContext = result == null ? null : result.toString();
 				}
 				HTTPResponse response = WebApplicationUtils.checkRateLimits(webApplication, source, token, device, rateLimitAction, rateLimitContext, request);
