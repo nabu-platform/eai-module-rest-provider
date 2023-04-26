@@ -21,7 +21,7 @@ import be.nabu.libs.types.api.annotation.Field;
 @XmlType(propOrder = { "method", "path", "queryParameters", "cookieParameters", "sessionParameters", "headerParameters", "responseHeaders", "roles", "permissionAction", "permissionContext", "useServiceContextAsPermissionContext", "useWebApplicationAsPermissionContext", "useProjectAsPermissionContext", "useGlobalPermissionContext", "preferredResponseType",
 		"asynchronous", "inputAsStream", "outputAsStream", "input", "output", "sanitizeInput", "acceptedLanguages", "configurationType", "device", "token", "lenient", "namingConvention", "webApplicationId", "geoPosition", 
 		"language", "allowFormBinding", "caseInsensitive", "cache", "allowCookiesWithoutReferer", "allowCookiesWithExternalReferer", "request", "allowHeaderAsQueryParameter", "useServerCache", "source", 
-		"allowRaw", "domain", "temporaryAlias", "temporarySecret", "temporaryCorrelationId", "rateLimitContext", "rateLimitAction", "ignoreOffline", "allowRootArrays", "captureErrors", "captureSuccessful" })
+		"allowRaw", "domain", "origin", "temporaryAlias", "temporarySecret", "temporaryCorrelationId", "rateLimitContext", "rateLimitAction", "ignoreOffline", "allowRootArrays", "captureErrors", "captureSuccessful" })
 public class RESTInterfaceConfiguration {
 
 	private DefinedType input, output;
@@ -44,7 +44,7 @@ public class RESTInterfaceConfiguration {
 	private boolean allowFormBinding;
 	private boolean caseInsensitive;
 	private boolean cache, useServerCache;
-	private boolean request, source, domain;
+	private boolean request, source, domain, origin;
 	// allow cookies to be used if there is no referer
 	// specifically IE does not send a referer when window.open is used
 	// this can potentially be an issue when downloading files via a REST service
@@ -360,6 +360,15 @@ public class RESTInterfaceConfiguration {
 	}
 	public void setDomain(boolean domain) {
 		this.domain = domain;
+	}
+	
+	@Field(group = "enrichInput")
+	@Comment(title = "Inject the origin of the request, this can be useful to craft redirect links back to it")
+	public boolean isOrigin() {
+		return origin;
+	}
+	public void setOrigin(boolean origin) {
+		this.origin = origin;
 	}
 	
 	@Field(group = "enrichInput")

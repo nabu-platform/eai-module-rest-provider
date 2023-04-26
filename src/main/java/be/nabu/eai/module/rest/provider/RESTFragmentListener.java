@@ -384,6 +384,12 @@ public class RESTFragmentListener implements EventHandler<HTTPRequest, HTTPRespo
 			if (input.getType().get("domain") != null) {
 				input.set("domain", uri.getHost());
 			}
+			if (input.getType().get("origin") != null) {
+				Header originHeader = MimeUtils.getHeader("Origin", request.getContent().getHeaders());
+				if (originHeader != null) {
+					input.set("origin", MimeUtils.getFullHeaderValue(originHeader));
+				}
+			}
 			if (input.getType().get("request") != null) {
 				input.set("request", request);
 			}
@@ -978,7 +984,9 @@ public class RESTFragmentListener implements EventHandler<HTTPRequest, HTTPRespo
 						// secure TODO?
 						webApplication.isSecure(),
 						// http only
-						true
+						true,
+						// use the same site cookie policy
+						webApplication.getConfig().getDefaultCookieSitePolicy()
 					);
 					headers.add(cookieHeader);
 				}
