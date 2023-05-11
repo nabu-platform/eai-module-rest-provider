@@ -10,17 +10,18 @@ import java.util.List;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import be.nabu.eai.api.NamingConvention;
 import be.nabu.eai.module.http.virtual.api.Source;
 import be.nabu.eai.module.rest.RESTUtils;
 import be.nabu.eai.repository.api.Repository;
 import be.nabu.eai.repository.artifacts.jaxb.JAXBArtifact;
+import be.nabu.eai.web.api.RESTInterface;
 import be.nabu.libs.authentication.api.Device;
 import be.nabu.libs.authentication.api.Token;
 import be.nabu.libs.http.api.HTTPRequest;
 import be.nabu.libs.http.glue.GlueListener;
 import be.nabu.libs.property.api.Value;
 import be.nabu.libs.resources.api.ResourceContainer;
-import be.nabu.libs.services.api.DefinedServiceInterface;
 import be.nabu.libs.services.api.ServiceInterface;
 import be.nabu.libs.types.SimpleTypeWrapperFactory;
 import be.nabu.libs.types.TypeUtils;
@@ -30,12 +31,13 @@ import be.nabu.libs.types.base.ComplexElementImpl;
 import be.nabu.libs.types.base.SimpleElementImpl;
 import be.nabu.libs.types.base.ValueImpl;
 import be.nabu.libs.types.java.BeanResolver;
+import be.nabu.libs.types.properties.AliasProperty;
 import be.nabu.libs.types.properties.MaxOccursProperty;
 import be.nabu.libs.types.properties.MinOccursProperty;
 import be.nabu.libs.types.structure.Structure;
 import nabu.utils.types.Coordinate;
 
-public class RESTInterfaceArtifact extends JAXBArtifact<RESTInterfaceConfiguration> implements DefinedServiceInterface {
+public class RESTInterfaceArtifact extends JAXBArtifact<RESTInterfaceConfiguration> implements RESTInterface {
 
 	private Logger logger = LoggerFactory.getLogger(getClass());
 	private Structure input, output;
@@ -79,44 +81,68 @@ public class RESTInterfaceArtifact extends JAXBArtifact<RESTInterfaceConfigurati
 
 	@Override
 	public ServiceInterface getParent() {
-		return null;
+		return getConfig().getParent();
 	}
 	
 	private void rebuildInterface() {
 		// reuse references so everything gets auto-updated
 		Structure input = this.input == null ? new Structure() : RESTUtils.clean(this.input);
 		Structure output = this.output == null ? new Structure() : RESTUtils.clean(this.output);
-		Structure query = getQuery();
-		Structure header = getHeader();
+		RESTInterface parent = getParent() instanceof RESTInterface ? (RESTInterface) getParent() : null;
+		Structure query = getQueryParameters();
+		Structure header = getRequestHeaderParameters();
 		Structure session = getSession();
 		Structure cookie = getCookie();
-		Structure path = getPath();
-		Structure responseHeader = getResponseHeader();
+		Structure path = getPathParameters();
+		Structure responseHeader = getResponseHeaderParameters();
+		if (parent != null) {
+			query.setSuperType(parent.getQueryParameters());
+			header.setSuperType(parent.getRequestHeaderParameters());
+			path.setSuperType(parent.getPathParameters());
+			responseHeader.setSuperType(parent.getResponseHeaderParameters());
+		}
 		try {
 			if (getConfiguration().getConfigurationType() != null) {
 				input.add(new ComplexElementImpl("configuration", (ComplexType) getConfiguration().getConfigurationType(), input, new ValueImpl<Integer>(MinOccursProperty.getInstance(), 0)));
 			}
 			if (getConfiguration().getQueryParameters() != null && !getConfiguration().getQueryParameters().trim().isEmpty()) {
-				List<String> names = Arrays.asList(getConfiguration().getQueryParameters().split("[\\s,]+"));
+				List<String> names = new ArrayList<String>();
+				for (String single : getConfiguration().getQueryParameters().split("[\\s,]+")) {
+					names.add(NamingConvention.LOWER_CAMEL_CASE.apply(single));
+				}
 				List<String> available = removeUnused(query, names);
 				for (String name : names) {
+					List<Value<?>> values = new ArrayList<Value<?>>();
+					String actualName = NamingConvention.LOWER_CAMEL_CASE.apply(name);
+					if (!actualName.equals(name)) {
+						values.add(new ValueImpl<String>(AliasProperty.getInstance(), name));
+						name = actualName;
+					}
 					if (!available.contains(name)) {
-						query.add(new SimpleElementImpl<String>(name, SimpleTypeWrapperFactory.getInstance().getWrapper().wrap(String.class), query, new ValueImpl<Integer>(MaxOccursProperty.getInstance(), 0), new ValueImpl<Integer>(MinOccursProperty.getInstance(), 0)));
+						values.add(new ValueImpl<Integer>(MaxOccursProperty.getInstance(), 0));
+						values.add(new ValueImpl<Integer>(MinOccursProperty.getInstance(), 0));
+						query.add(new SimpleElementImpl<String>(name, SimpleTypeWrapperFactory.getInstance().getWrapper().wrap(String.class), query, values.toArray(new Value[0])));
 					}
 				}
-				boolean required = false;
-				for (Element<?> child : query) {
-					Value<Integer> property = child.getProperty(MinOccursProperty.getInstance());
-					if (property == null || property.getValue() > 0) {
-						required = true;
-						break;
-					}
-				}
-				input.add(new ComplexElementImpl("query", query, input, new ValueImpl<Integer>(MinOccursProperty.getInstance(), required ? 1 : 0)));
 			}
 			else {
 				removeAll(query);
 			}
+			
+			boolean hasAny = false;
+			boolean required = false;
+			for (Element<?> child : TypeUtils.getAllChildren(query)) {
+				hasAny = true;
+				Value<Integer> property = child.getProperty(MinOccursProperty.getInstance());
+				if (property == null || property.getValue() > 0) {
+					required = true;
+					break;
+				}
+			}
+			if (hasAny) {
+				input.add(new ComplexElementImpl("query", query, input, new ValueImpl<Integer>(MinOccursProperty.getInstance(), required ? 1 : 0)));
+			}
+			
 			if (getConfiguration().getHeaderParameters() != null && !getConfiguration().getHeaderParameters().trim().isEmpty()) {
 				List<String> names = Arrays.asList(getConfiguration().getHeaderParameters().split("[\\s,]+"));
 				for (int i = 0; i < names.size(); i++) {
@@ -128,19 +154,25 @@ public class RESTInterfaceArtifact extends JAXBArtifact<RESTInterfaceConfigurati
 						header.add(new SimpleElementImpl<String>(name, SimpleTypeWrapperFactory.getInstance().getWrapper().wrap(String.class), header, new ValueImpl<Integer>(MaxOccursProperty.getInstance(), 0), new ValueImpl<Integer>(MinOccursProperty.getInstance(), 0)));
 					}
 				}
-				boolean required = true;
-				for (Element<?> child : header) {
-					Value<Integer> property = child.getProperty(MinOccursProperty.getInstance());
-					if (property != null && property.getValue() == 0) {
-						required = false;
-						break;
-					}
-				}
-				input.add(new ComplexElementImpl("header", header, input, new ValueImpl<Integer>(MinOccursProperty.getInstance(), required ? 1 : 0)));
 			}
 			else {
 				removeAll(header);
 			}
+			
+			required = true;
+			hasAny = false;
+			for (Element<?> child : TypeUtils.getAllChildren(header)) {
+				hasAny = true;
+				Value<Integer> property = child.getProperty(MinOccursProperty.getInstance());
+				if (property != null && property.getValue() == 0) {
+					required = false;
+					break;
+				}
+			}
+			if (hasAny) {
+				input.add(new ComplexElementImpl("header", header, input, new ValueImpl<Integer>(MinOccursProperty.getInstance(), required ? 1 : 0)));
+			}
+			
 			if (getConfiguration().getSessionParameters() != null && !getConfiguration().getSessionParameters().trim().isEmpty()) {
 				List<String> names = Arrays.asList(getConfiguration().getSessionParameters().split("[\\s,]+"));
 				List<String> available = removeUnused(session, names);
@@ -150,19 +182,24 @@ public class RESTInterfaceArtifact extends JAXBArtifact<RESTInterfaceConfigurati
 						session.add(new ComplexElementImpl(name, (ComplexType) BeanResolver.getInstance().resolve(Object.class), session, new ValueImpl<Integer>(MinOccursProperty.getInstance(), 0)));
 					}
 				}
-				boolean required = true;
-				for (Element<?> child : session) {
-					Value<Integer> property = child.getProperty(MinOccursProperty.getInstance());
-					if (property != null && property.getValue() == 0) {
-						required = false;
-						break;
-					}
-				}
-				input.add(new ComplexElementImpl("session", session, input, new ValueImpl<Integer>(MinOccursProperty.getInstance(), required ? 1 : 0)));
 			}
 			else {
 				removeAll(session);
 			}
+			
+			hasAny = false;
+			required = true;
+			for (Element<?> child : TypeUtils.getAllChildren(session)) {
+				Value<Integer> property = child.getProperty(MinOccursProperty.getInstance());
+				if (property != null && property.getValue() == 0) {
+					required = false;
+					break;
+				}
+			}
+			if (hasAny) {
+				input.add(new ComplexElementImpl("session", session, input, new ValueImpl<Integer>(MinOccursProperty.getInstance(), required ? 1 : 0)));
+			}
+			
 			if (getConfiguration().getCookieParameters() != null && !getConfiguration().getCookieParameters().trim().isEmpty()) {
 				List<String> names = Arrays.asList(getConfiguration().getCookieParameters().split("[\\s,]+"));
 				List<String> available = removeUnused(cookie, names);
@@ -171,19 +208,25 @@ public class RESTInterfaceArtifact extends JAXBArtifact<RESTInterfaceConfigurati
 						cookie.add(new SimpleElementImpl<String>(name, SimpleTypeWrapperFactory.getInstance().getWrapper().wrap(String.class), cookie, new ValueImpl<Integer>(MaxOccursProperty.getInstance(), 0), new ValueImpl<Integer>(MinOccursProperty.getInstance(), 0)));
 					}
 				}
-				boolean required = true;
-				for (Element<?> child : cookie) {
-					Value<Integer> property = child.getProperty(MinOccursProperty.getInstance());
-					if (property != null && property.getValue() == 0) {
-						required = false;
-						break;
-					}
-				}
-				input.add(new ComplexElementImpl("cookie", cookie, input, new ValueImpl<Integer>(MinOccursProperty.getInstance(), required ? 1 : 0)));
 			}
 			else {
 				removeAll(cookie);
 			}
+			
+			required = true;
+			hasAny = false;
+			for (Element<?> child : TypeUtils.getAllChildren(cookie)) {
+				hasAny = true;
+				Value<Integer> property = child.getProperty(MinOccursProperty.getInstance());
+				if (property != null && property.getValue() == 0) {
+					required = false;
+					break;
+				}
+			}
+			if (hasAny) {
+				input.add(new ComplexElementImpl("cookie", cookie, input, new ValueImpl<Integer>(MinOccursProperty.getInstance(), required ? 1 : 0)));
+			}
+			
 			if (getConfiguration().getPath() != null) {
 				List<String> names = GlueListener.analyzePath(getConfiguration().getPath()).getParameters();
 				List<String> available = removeUnused(path, names);
@@ -192,14 +235,17 @@ public class RESTInterfaceArtifact extends JAXBArtifact<RESTInterfaceConfigurati
 						path.add(new SimpleElementImpl<String>(name, SimpleTypeWrapperFactory.getInstance().getWrapper().wrap(String.class), path));
 					}
 				}
-				if (path.iterator().hasNext()) {
-					input.add(new ComplexElementImpl("path", path, input));
-				}
 			}
 			else {
 				removeAll(path);
 			}
-			if (getConfiguration().getInputAsStream() != null && getConfiguration().getInputAsStream()) {
+			
+			if (!TypeUtils.getAllChildren(path).isEmpty()) {
+				input.add(new ComplexElementImpl("path", path, input));
+			}
+			
+			// in some cases, even though the parent has a defined input, you may want to use streams anyway (to prevent parsing)
+			if ((parent != null && parent.isInputAsStream()) || (getConfiguration().getInputAsStream() != null && getConfiguration().getInputAsStream())) {
 				input.add(new SimpleElementImpl<InputStream>("content", SimpleTypeWrapperFactory.getInstance().getWrapper().wrap(InputStream.class), input));
 				Structure meta = new Structure();
 				meta.setName("meta");
@@ -207,8 +253,12 @@ public class RESTInterfaceArtifact extends JAXBArtifact<RESTInterfaceConfigurati
 				meta.add(new SimpleElementImpl<String>("fileName", SimpleTypeWrapperFactory.getInstance().getWrapper().wrap(String.class), meta, new ValueImpl<Integer>(MinOccursProperty.getInstance(), 0)));
 				input.add(new ComplexElementImpl("meta", meta, input, new ValueImpl<Integer>(MinOccursProperty.getInstance(), 0)));
 			}
+			// if you define a local input, do it at your own risk if the parent also has one, it should probably extend the original...
 			else if (getConfiguration().getInput() != null) {
 				input.add(new ComplexElementImpl("content", (ComplexType) getConfiguration().getInput(), input));
+			}
+			else if (parent != null && parent.getRequestBody() != null) {
+				input.add(new ComplexElementImpl("content", parent.getRequestBody(), input));
 			}
 			if (getConfiguration().getAcceptedLanguages() != null && getConfiguration().getAcceptedLanguages()) {
 				input.add(new SimpleElementImpl<String>("acceptedLanguages", SimpleTypeWrapperFactory.getInstance().getWrapper().wrap(String.class), input, new ValueImpl<Integer>(MaxOccursProperty.getInstance(), 0), new ValueImpl<Integer>(MinOccursProperty.getInstance(), 0)));
@@ -236,11 +286,25 @@ public class RESTInterfaceArtifact extends JAXBArtifact<RESTInterfaceConfigurati
 						responseHeader.add(new SimpleElementImpl<String>(name, SimpleTypeWrapperFactory.getInstance().getWrapper().wrap(String.class), responseHeader));
 					}
 				}
-				output.add(new ComplexElementImpl("header", responseHeader, output));
 			}
 			else {
 				removeAll(responseHeader);
 			}
+			
+			required = true;
+			hasAny = false;
+			for (Element<?> child : TypeUtils.getAllChildren(responseHeader)) {
+				hasAny = true;
+				Value<Integer> property = child.getProperty(MinOccursProperty.getInstance());
+				if (property != null && property.getValue() == 0) {
+					required = false;
+					break;
+				}
+			}
+			if (hasAny) {
+				output.add(new ComplexElementImpl("header", responseHeader, output, new ValueImpl<Integer>(MinOccursProperty.getInstance(), required ? 1 : 0)));
+			}
+			
 			if (getConfig().isCache()) {
 				Structure cache = new Structure();
 				cache.setName("cache");
@@ -249,7 +313,7 @@ public class RESTInterfaceArtifact extends JAXBArtifact<RESTInterfaceConfigurati
 				cache.add(new SimpleElementImpl<Boolean>("mustRevalidate", SimpleTypeWrapperFactory.getInstance().getWrapper().wrap(Boolean.class), cache, new ValueImpl<Integer>(MinOccursProperty.getInstance(), 0)));
 				output.add(new ComplexElementImpl("cache", cache, output, new ValueImpl<Integer>(MinOccursProperty.getInstance(), 0)));
 			}
-			if (getConfiguration().getOutputAsStream() != null && getConfiguration().getOutputAsStream()) {
+			if ((parent != null && parent.isOutputAsStream()) || (getConfiguration().getOutputAsStream() != null && getConfiguration().getOutputAsStream())) {
 				output.add(new SimpleElementImpl<InputStream>("content", SimpleTypeWrapperFactory.getInstance().getWrapper().wrap(InputStream.class), output));
 				Structure meta = new Structure();
 				meta.setName("meta");
@@ -260,6 +324,9 @@ public class RESTInterfaceArtifact extends JAXBArtifact<RESTInterfaceConfigurati
 			}
 			else if (getConfiguration().getOutput() != null) {
 				output.add(new ComplexElementImpl("content", (ComplexType) getConfiguration().getOutput(), output));
+			}
+			else if (parent != null && parent.getResponseBody() != null) {
+				output.add(new ComplexElementImpl("content", (ComplexType) parent.getResponseBody(), output));
 			}
 			if (getConfig().isWebApplicationId()) {
 				input.add(new SimpleElementImpl<String>("webApplicationId", SimpleTypeWrapperFactory.getInstance().getWrapper().wrap(String.class), input));
@@ -305,27 +372,27 @@ public class RESTInterfaceArtifact extends JAXBArtifact<RESTInterfaceConfigurati
 		return available;
 	}
 
-	public Structure getQuery() {
+	@Override
+	public Structure getQueryParameters() {
 		if (query == null) {
 			query = new Structure();
 			query.setName("query");
 		}
 		return query;
 	}
-
-	public void setQuery(Structure query) {
+	public void setQueryParameters(Structure query) {
 		this.query = query;
 	}
 
-	public Structure getHeader() {
+	@Override
+	public Structure getRequestHeaderParameters() {
 		if (header == null) {
 			header = new Structure();
 			header.setName("header");
 		}
 		return header;
 	}
-
-	public void setHeader(Structure header) {
+	public void setRequestHeaderParameters(Structure header) {
 		this.header = header;
 	}
 
@@ -353,7 +420,8 @@ public class RESTInterfaceArtifact extends JAXBArtifact<RESTInterfaceConfigurati
 		this.cookie = cookie;
 	}
 
-	public Structure getPath() {
+	@Override
+	public Structure getPathParameters() {
 		if (path == null) {
 			path = new Structure();
 			path.setName("path");
@@ -361,20 +429,71 @@ public class RESTInterfaceArtifact extends JAXBArtifact<RESTInterfaceConfigurati
 		return path;
 	}
 
-	public void setPath(Structure path) {
+	public void setPathParameters(Structure path) {
 		this.path = path;
 	}
 
-	public Structure getResponseHeader() {
+	@Override
+	public Structure getResponseHeaderParameters() {
 		if (responseHeader == null) {
 			responseHeader = new Structure();
 			responseHeader.setName("responseHeader");
 		}
 		return responseHeader;
 	}
-
-	public void setResponseHeader(Structure responseHeader) {
+	public void setResponseHeaderParameters(Structure responseHeader) {
 		this.responseHeader = responseHeader;
+	}
+
+	@Override
+	public String getMethod() {
+		RESTInterface parent = getParent() instanceof RESTInterface ? (RESTInterface) getParent() : null;
+		String method = getConfig().getMethod() == null ? null : getConfig().getMethod().name();
+		if (method == null && parent != null) {
+			method = parent.getMethod();
+		}
+		return method;
+	}
+
+	@Override
+	public boolean isInputAsStream() {
+		return getConfig().getInputAsStream() != null && getConfig().getInputAsStream();
+	}
+
+	@Override
+	public boolean isOutputAsStream() {
+		return getConfig().getOutputAsStream() != null && getConfig().getOutputAsStream();
+	}
+
+	@Override
+	public String getContentType() {
+		return getConfig().getPreferredResponseType() == null ? "application/json" : getConfig().getPreferredResponseType().getMimeType();
+	}
+
+	@Override
+	public String getPath() {
+		RESTInterface parent = getParent() instanceof RESTInterface ? (RESTInterface) getParent() : null;
+		String path = getConfig().getPath();
+		// if we have a parent path, append it
+		if (parent != null && parent.getPath() != null) {
+			if (path == null || path.trim().isEmpty()) {
+				path = parent.getPath();
+			}
+			else {
+				path = parent.getPath().replace("[/]+$", "") + "/" + path.replace("^[/]+", "");
+			}
+		}
+		return path;
+	}
+
+	@Override
+	public ComplexType getRequestBody() {
+		return (ComplexType) getConfig().getInput();
+	}
+
+	@Override
+	public ComplexType getResponseBody() {
+		return (ComplexType) getConfig().getOutput();
 	}
 
 }

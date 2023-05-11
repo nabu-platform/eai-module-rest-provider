@@ -14,6 +14,7 @@ import be.nabu.eai.api.NamingConvention;
 import be.nabu.eai.module.rest.WebMethod;
 import be.nabu.eai.module.rest.WebResponseType;
 import be.nabu.eai.repository.jaxb.ArtifactXMLAdapter;
+import be.nabu.eai.web.api.RESTInterface;
 import be.nabu.libs.types.api.DefinedType;
 import be.nabu.libs.types.api.annotation.Field;
 
@@ -21,7 +22,7 @@ import be.nabu.libs.types.api.annotation.Field;
 @XmlType(propOrder = { "method", "path", "queryParameters", "cookieParameters", "sessionParameters", "headerParameters", "responseHeaders", "roles", "permissionAction", "permissionContext", "useServiceContextAsPermissionContext", "useWebApplicationAsPermissionContext", "useProjectAsPermissionContext", "useGlobalPermissionContext", "preferredResponseType",
 		"asynchronous", "inputAsStream", "outputAsStream", "input", "output", "sanitizeInput", "acceptedLanguages", "configurationType", "device", "token", "lenient", "namingConvention", "webApplicationId", "geoPosition", 
 		"language", "allowFormBinding", "caseInsensitive", "cache", "allowCookiesWithoutReferer", "allowCookiesWithExternalReferer", "request", "allowHeaderAsQueryParameter", "useServerCache", "source", 
-		"allowRaw", "domain", "origin", "temporaryAlias", "temporarySecret", "temporaryCorrelationId", "rateLimitContext", "rateLimitAction", "ignoreOffline", "allowRootArrays", "captureErrors", "captureSuccessful" })
+		"allowRaw", "domain", "origin", "temporaryAlias", "temporarySecret", "temporaryCorrelationId", "rateLimitContext", "rateLimitAction", "ignoreOffline", "allowRootArrays", "captureErrors", "captureSuccessful", "parent", "limitedToInterface" })
 public class RESTInterfaceConfiguration {
 
 	private DefinedType input, output;
@@ -69,8 +70,23 @@ public class RESTInterfaceConfiguration {
 	// you can configure the rest service to use the current service context as the permission context for security checks
 	private boolean useServiceContextAsPermissionContext, useWebApplicationAsPermissionContext, useProjectAsPermissionContext, useGlobalPermissionContext;
 	
+	// only show specific facts
+	private boolean limitedToInterface;
+	
 	private DefinedType configurationType;
+	
+	// the parent interface
+	private RESTInterface parent;
 
+	@Field(comment = "The parent interface we are implementing")
+	@XmlJavaTypeAdapter(value = ArtifactXMLAdapter.class)
+	public RESTInterface getParent() {
+		return parent;
+	}
+	public void setParent(RESTInterface parent) {
+		this.parent = parent;
+	}
+	
 	@Field(comment = "The path this REST service should listen on, use {} to indicate variable parts. For example: /resource/{resourceId}")
 	public String getPath() {
 		return path;
@@ -477,6 +493,11 @@ public class RESTInterfaceConfiguration {
 	public void setUseGlobalPermissionContext(boolean useGlobalPermissionContext) {
 		this.useGlobalPermissionContext = useGlobalPermissionContext;
 	}
-	
+	public boolean isLimitedToInterface() {
+		return limitedToInterface;
+	}
+	public void setLimitedToInterface(boolean limitedToInterface) {
+		this.limitedToInterface = limitedToInterface;
+	}
 	
 }

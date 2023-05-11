@@ -89,6 +89,7 @@ import be.nabu.libs.types.binding.api.Window;
 import be.nabu.libs.types.binding.form.FormBinding;
 import be.nabu.libs.types.binding.json.JSONBinding;
 import be.nabu.libs.types.binding.xml.XMLBinding;
+import be.nabu.libs.types.properties.AliasProperty;
 import be.nabu.libs.types.properties.CollectionFormatProperty;
 import be.nabu.libs.types.properties.MaxOccursProperty;
 import be.nabu.libs.types.structure.Structure;
@@ -135,7 +136,7 @@ public class RESTFragmentListener implements EventHandler<HTTPRequest, HTTPRespo
 		// we now handle this at a higher level
 		this.allowEncoding = allowEncoding && false;
 		this.cacheService = cacheService;
-		String path = webArtifact.getConfiguration().getPath();
+		String path = webArtifact.getPath();
 		// make up a more-or-less unique path
 		if (path == null || path.trim().isEmpty()) {
 			path = service.getId();
@@ -143,7 +144,7 @@ public class RESTFragmentListener implements EventHandler<HTTPRequest, HTTPRespo
 		if (path.startsWith("/")) {
 			path = path.substring(1);
 		}
-		this.pathAnalysis = GlueListener.analyzePath(path, TypeBaseUtils.getRegexes(webArtifact.getPath()), !webArtifact.getConfig().isCaseInsensitive());
+		this.pathAnalysis = GlueListener.analyzePath(path, TypeBaseUtils.getRegexes(webArtifact.getPathParameters()), !webArtifact.getConfig().isCaseInsensitive());
 		DefinedType configurationType = webArtifact.getConfiguration().getConfigurationType();
 		if (configurationType != null) {
 			String configurationPath = serverPath == null ? "/" : serverPath;
@@ -192,8 +193,9 @@ public class RESTFragmentListener implements EventHandler<HTTPRequest, HTTPRespo
 			ServiceRuntime.getGlobalContext().put("service.context", webApplication.getId());
 			ServiceRuntime.getGlobalContext().put("webApplicationId", webApplication.getId());
 			ServiceRuntime.getGlobalContext().put("service.source", "rest");
+			String method = webArtifact.getMethod();
 			// stop fast if wrong method
-			if (webArtifact.getConfiguration().getMethod() != null && !webArtifact.getConfiguration().getMethod().toString().equalsIgnoreCase(request.getMethod())) {
+			if (method != null && !method.equalsIgnoreCase(request.getMethod())) {
 				return null;
 			}
 			URI uri = HTTPUtils.getURI(request, false);
@@ -402,6 +404,11 @@ public class RESTFragmentListener implements EventHandler<HTTPRequest, HTTPRespo
 			if (input.getType().get("query") != null) {
 				for (Element<?> element : TypeUtils.getAllChildren((ComplexType) input.getType().get("query").getType())) {
 					String name = element.getName();
+					// support aliasing for otherwise unsupported naming conventions
+					String alias = ValueUtils.getValue(AliasProperty.getInstance(), element.getProperties());
+					if (alias != null) {
+						name = alias;
+					}
 					if (webArtifact.getConfig().getNamingConvention() != null) {
 						name = webArtifact.getConfig().getNamingConvention().apply(name);
 					}

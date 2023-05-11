@@ -181,7 +181,7 @@ public class RESTGenerateContextMenu implements EntryContextMenuProvider {
 										iface.getConfig().setPermissionAction(name + ".update");
 										// update the id field in the path if possible
 										if (primaryKeyField != null) {
-											Structure path = iface.getPath();
+											Structure path = iface.getPathParameters();
 											path.add(new SimpleElementImpl(name + "Id", (SimpleType) primaryKeyField.getType(), path));
 										}
 										restManager.save(updateEntry, update);
@@ -206,7 +206,7 @@ public class RESTGenerateContextMenu implements EntryContextMenuProvider {
 										iface.getConfig().setPermissionAction(name + ".delete");
 										// update the id field in the path if possible
 										if (primaryKeyField != null) {
-											Structure path = iface.getPath();
+											Structure path = iface.getPathParameters();
 											path.add(new SimpleElementImpl(name + "Id", (SimpleType) primaryKeyField.getType(), path));
 										}
 										restManager.save(deleteEntry, delete);
@@ -230,7 +230,7 @@ public class RESTGenerateContextMenu implements EntryContextMenuProvider {
 										iface.getConfig().setRoles(Arrays.asList("$user"));
 										iface.getConfig().setPermissionAction(name + ".list");
 										iface.getConfig().setQueryParameters("orderBy, limit, offset");
-										Structure query = iface.getQuery();
+										Structure query = iface.getQueryParameters();
 										query.add(new SimpleElementImpl<String>("orderBy", SimpleTypeWrapperFactory.getInstance().getWrapper().wrap(String.class), query,
 											new ValueImpl<Integer>(MinOccursProperty.getInstance(), 0),
 											new ValueImpl<Integer>(MaxOccursProperty.getInstance(), 0)
@@ -284,7 +284,7 @@ public class RESTGenerateContextMenu implements EntryContextMenuProvider {
 										iface.getConfig().setPermissionAction(name + ".get");
 										// update the id field in the path if possible
 										if (primaryKeyField != null) {
-											Structure path = iface.getPath();
+											Structure path = iface.getPathParameters();
 											path.add(new SimpleElementImpl(name + "Id", (SimpleType) primaryKeyField.getType(), path));
 										}
 										restManager.save(getEntry, get);

@@ -1,6 +1,7 @@
 package be.nabu.eai.module.rest.provider.iface;
 
 import java.io.IOException;
+import java.util.Arrays;
 import java.util.List;
 
 import javafx.beans.property.SimpleBooleanProperty;
@@ -47,7 +48,7 @@ public class RESTInterfaceGUIManager extends BaseJAXBGUIManager<RESTInterfaceCon
 
 	@Override
 	public String getCategory() {
-		return "Protocols";
+		return "REST";
 	}
 	
 	@Override
@@ -57,7 +58,14 @@ public class RESTInterfaceGUIManager extends BaseJAXBGUIManager<RESTInterfaceCon
 
 	@Override
 	protected RESTInterfaceArtifact newInstance(MainController controller, RepositoryEntry entry, Value<?>...values) throws IOException {
-		return new RESTInterfaceArtifact(entry.getName(), entry, entry.getRepository());
+		RESTInterfaceArtifact restInterfaceArtifact = new RESTInterfaceArtifact(entry.getName(), entry, entry.getRepository());
+		restInterfaceArtifact.getConfig().setLimitedToInterface(true);
+		return restInterfaceArtifact;
+	}
+	
+	@Override
+	protected List<String> getBlacklistedProperties() {
+		return Arrays.asList("limitedToInterface");
 	}
 
 	@Override
@@ -70,14 +78,19 @@ public class RESTInterfaceGUIManager extends BaseJAXBGUIManager<RESTInterfaceCon
 		TitledPane titledPane = new TitledPane("Type Definitions", box);
 		
 		box.getChildren().addAll(
-			display(instance, box, instance.getPath()),
-			display(instance, box, instance.getQuery(), MinOccursProperty.getInstance(), MaxOccursProperty.getInstance()),
-			display(instance, box, instance.getHeader(), MinOccursProperty.getInstance(), MaxOccursProperty.getInstance()),
-			display(instance, box, instance.getResponseHeader(), MinOccursProperty.getInstance(), MaxOccursProperty.getInstance()),
+			display(instance, box, instance.getPathParameters()),
+			display(instance, box, instance.getQueryParameters(), MinOccursProperty.getInstance(), MaxOccursProperty.getInstance()),
+			display(instance, box, instance.getRequestHeaderParameters(), MinOccursProperty.getInstance(), MaxOccursProperty.getInstance()),
+			display(instance, box, instance.getResponseHeaderParameters(), MinOccursProperty.getInstance(), MaxOccursProperty.getInstance()),
 			display(instance, box, instance.getCookie(), MinOccursProperty.getInstance(), MaxOccursProperty.getInstance()),
 			display(instance, box, instance.getSession(), MinOccursProperty.getInstance(), MaxOccursProperty.getInstance())
 		);
 		displayWithAccordion.getPanes().add(titledPane);
+		
+		// if we want a limited view, scratch most accordions
+		if (instance.getConfig().isLimitedToInterface()) {
+			displayWithAccordion.getPanes().remove(1, displayWithAccordion.getPanes().size());
+		}
 		
 		ScrollPane scroll = new ScrollPane();
 		AnchorPane.setBottomAnchor(scroll, 0d);
