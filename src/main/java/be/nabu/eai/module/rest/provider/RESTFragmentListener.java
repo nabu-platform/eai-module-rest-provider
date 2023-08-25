@@ -626,21 +626,21 @@ public class RESTFragmentListener implements EventHandler<HTTPRequest, HTTPRespo
 						// otherwise, check if there is a broader "execution" token
 						token = temporaryAuthenticator.authenticate(webApplication.getRealm(), new TemporaryAuthenticationImpl(alias, secret), device, TemporaryAuthenticator.EXECUTION, correlationId);
 					}
-					if (roleHandler != null && webArtifact.getConfiguration().getRoles() != null) {
-						boolean hasRole = false;
-						for (String role : webArtifact.getConfiguration().getRoles()) {
-							if (roleHandler.hasRole(token, role)) {
-								hasRole = true;
-								break;
-							}
-						}
-						if (!hasRole) {
-							throw new HTTPException(token == null ? 401 : 403, "User does not have one of the allowed roles", "User '" + (token == null ? Authenticator.ANONYMOUS : token.getName()) + "' does not have one of the allowed roles '" + webArtifact.getConfiguration().getRoles() + "' for service: " + service.getId(), token);
-						}
-					}
 					// update the token in the input
 					if (input.getType().get("token") != null) {
 						input.set("token", token);
+					}
+				}
+				if (roleHandler != null && webArtifact.getConfiguration().getRoles() != null) {
+					boolean hasRole = false;
+					for (String role : webArtifact.getConfiguration().getRoles()) {
+						if (roleHandler.hasRole(token, role)) {
+							hasRole = true;
+							break;
+						}
+					}
+					if (!hasRole) {
+						throw new HTTPException(token == null ? 401 : 403, "User does not have one of the allowed roles", "User '" + (token == null ? Authenticator.ANONYMOUS : token.getName()) + "' does not have one of the allowed roles '" + webArtifact.getConfiguration().getRoles() + "' for service: " + service.getId(), token);
 					}
 				}
 			}
@@ -658,9 +658,9 @@ public class RESTFragmentListener implements EventHandler<HTTPRequest, HTTPRespo
 			// check permissions
 			PermissionHandler permissionHandler = webApplication.getPermissionHandler();
 			PotentialPermissionHandler potentialPermissionHandler = webApplication.getPotentialPermissionHandler();
+			String action = null;
+			String context = null;
 			if (permissionHandler != null) {
-				String context = null;
-				String action = null;
 				boolean hasDefinedContext = false;
 				if (webArtifact.getConfig().getPermissionContext() != null) {
 					if (webArtifact.getConfig().getPermissionContext().startsWith("=")) {
@@ -997,29 +997,39 @@ public class RESTFragmentListener implements EventHandler<HTTPRequest, HTTPRespo
 					);
 					headers.add(cookieHeader);
 				}
+				if (EAIResourceRepository.isDevelopment()) {
+					if (action != null) {
+						headers.add(new MimeHeader("X-Checked-Permission-Action", action));
+					}
+					if (context != null) {
+						headers.add(new MimeHeader("X-Checked-Permission-Context", context));
+					}
+					headers.add(new MimeHeader("X-Service-Id", service.getId()));
+					headers.add(new MimeHeader("X-Service-Context", serviceContext));
+				}
+				Integer responseCode = output == null ? null : (Integer) output.get("responseCode");
 				// if there is no content to respond with, just send back an empty response
 				if (output == null || output.get("content") == null) {
-					// if there is structurally no output, return a 204
-					if (webArtifact.getConfig().getOutput() == null && (webArtifact.getConfig().getOutputAsStream() == null || !webArtifact.getConfig().getOutputAsStream())) {
-						HTTPResponse newEmptyResponse = HTTPUtils.newEmptyResponse(request, headers.toArray(new Header[headers.size()]));
-						if (interceptor != null) {
-							newEmptyResponse = (HTTPResponse) interceptor.intercept(newEmptyResponse);
+					if (responseCode == null) {
+						// if there is structurally no output, return a 204
+						if (webArtifact.getConfig().getOutput() == null && (webArtifact.getConfig().getOutputAsStream() == null || !webArtifact.getConfig().getOutputAsStream())) {
+							responseCode = 204;
 						}
-						return newEmptyResponse;
-					}
-					// if there is by happenstance no output, return a 200
-					else {
-						List<Header> allHeaders = new ArrayList<Header>();
-						allHeaders.addAll(headers);
-						allHeaders.add(new MimeHeader("Content-Length", "0"));
-						HTTPResponse newEmptyResponse = new DefaultHTTPResponse(request, 200, "OK", new PlainMimeEmptyPart(null,
-							allHeaders.toArray(new Header[0])
-						));
-						if (interceptor != null) {
-							newEmptyResponse = (HTTPResponse) interceptor.intercept(newEmptyResponse);
+						// if there is by happenstance no output, return a 200
+						else {
+							responseCode = 200;
 						}
-						return newEmptyResponse;
 					}
+					List<Header> allHeaders = new ArrayList<Header>();
+					allHeaders.addAll(headers);
+					allHeaders.add(new MimeHeader("Content-Length", "0"));
+					HTTPResponse newEmptyResponse = new DefaultHTTPResponse(request, responseCode, HTTPCodes.getMessage(responseCode), new PlainMimeEmptyPart(null,
+						allHeaders.toArray(new Header[0])
+					));
+					if (interceptor != null) {
+						newEmptyResponse = (HTTPResponse) interceptor.intercept(newEmptyResponse);
+					}
+					return newEmptyResponse;
 				}
 				else if (output.get("content") instanceof InputStream) {
 					// no size given, set chunked
@@ -1037,8 +1047,11 @@ public class RESTFragmentListener implements EventHandler<HTTPRequest, HTTPRespo
 					if (allowEncoding) {
 						HTTPUtils.setContentEncoding(part, request.getContent().getHeaders());
 					}
+					if (responseCode == null) {
+						responseCode = 200;
+					}
 					// we can _not_ reopen this one!
-					HTTPResponse streamedResponse = new DefaultHTTPResponse(request, 200, HTTPCodes.getMessage(200), part);
+					HTTPResponse streamedResponse = new DefaultHTTPResponse(request, responseCode, HTTPCodes.getMessage(responseCode), part);
 					if (interceptor != null) {
 						streamedResponse = (HTTPResponse) interceptor.intercept(streamedResponse);
 					}
@@ -1109,7 +1122,10 @@ public class RESTFragmentListener implements EventHandler<HTTPRequest, HTTPRespo
 					if (allowEncoding) {
 						HTTPUtils.setContentEncoding(part, request.getContent().getHeaders());
 					}
-					HTTPResponse response = new DefaultHTTPResponse(request, 200, HTTPCodes.getMessage(200), part);
+					if (responseCode == null) {
+						responseCode = 200;
+					}
+					HTTPResponse response = new DefaultHTTPResponse(request, responseCode, HTTPCodes.getMessage(responseCode), part);
 					
 					// if we upgraded the security with a persistent token, persist it
 					Token currentToken = newExecutionContext.getSecurityContext().getToken();

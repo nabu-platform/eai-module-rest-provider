@@ -22,7 +22,7 @@ import be.nabu.libs.types.api.annotation.Field;
 @XmlType(propOrder = { "method", "path", "queryParameters", "cookieParameters", "sessionParameters", "headerParameters", "responseHeaders", "roles", "permissionAction", "permissionContext", "useServiceContextAsPermissionContext", "useWebApplicationAsPermissionContext", "useProjectAsPermissionContext", "useGlobalPermissionContext", "preferredResponseType",
 		"asynchronous", "inputAsStream", "outputAsStream", "input", "output", "sanitizeInput", "acceptedLanguages", "configurationType", "device", "token", "lenient", "namingConvention", "webApplicationId", "geoPosition", 
 		"language", "allowFormBinding", "caseInsensitive", "cache", "allowCookiesWithoutReferer", "allowCookiesWithExternalReferer", "request", "allowHeaderAsQueryParameter", "useServerCache", "source", 
-		"allowRaw", "domain", "origin", "temporaryAlias", "temporarySecret", "temporaryCorrelationId", "rateLimitContext", "rateLimitAction", "ignoreOffline", "allowRootArrays", "captureErrors", "captureSuccessful", "parent", "limitedToInterface" })
+		"allowRaw", "domain", "origin", "temporaryAlias", "temporarySecret", "temporaryCorrelationId", "rateLimitContext", "rateLimitAction", "ignoreOffline", "allowRootArrays", "captureErrors", "captureSuccessful", "parent", "limitedToInterface", "allowExplicitResponseCode" })
 public class RESTInterfaceConfiguration {
 
 	private DefinedType input, output;
@@ -54,6 +54,9 @@ public class RESTInterfaceConfiguration {
 	private boolean allowCookiesWithExternalReferer;
 	// whether or not we want to ignore offline modus
 	private boolean ignoreOffline;
+	
+	// whether or not you want the user to be able to set an explicit response code
+	private boolean allowExplicitResponseCode;
 	
 	// in the future we may want to add queries so you can do this more fine grainedly
 	private boolean captureErrors, captureSuccessful; 
@@ -499,5 +502,15 @@ public class RESTInterfaceConfiguration {
 	public void setLimitedToInterface(boolean limitedToInterface) {
 		this.limitedToInterface = limitedToInterface;
 	}
+	
+	@Advanced
+	@Field(comment = "Allows you to set an explicit response code rather than the automated one")
+	public boolean isAllowExplicitResponseCode() {
+		return allowExplicitResponseCode;
+	}
+	public void setAllowExplicitResponseCode(boolean allowExplicitResponseCode) {
+		this.allowExplicitResponseCode = allowExplicitResponseCode;
+	}
+
 	
 }

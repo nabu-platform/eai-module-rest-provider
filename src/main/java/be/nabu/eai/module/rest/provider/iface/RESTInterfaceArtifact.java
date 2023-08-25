@@ -328,6 +328,9 @@ public class RESTInterfaceArtifact extends JAXBArtifact<RESTInterfaceConfigurati
 			else if (parent != null && parent.getResponseBody() != null) {
 				output.add(new ComplexElementImpl("content", (ComplexType) parent.getResponseBody(), output));
 			}
+			if (getConfig().isAllowExplicitResponseCode()) {
+				output.add(new SimpleElementImpl<Integer>("responseCode", SimpleTypeWrapperFactory.getInstance().getWrapper().wrap(Integer.class), output));
+			}
 			if (getConfig().isWebApplicationId()) {
 				input.add(new SimpleElementImpl<String>("webApplicationId", SimpleTypeWrapperFactory.getInstance().getWrapper().wrap(String.class), input));
 			}
