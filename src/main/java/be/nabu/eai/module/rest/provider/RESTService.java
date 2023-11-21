@@ -2,12 +2,16 @@ package be.nabu.eai.module.rest.provider;
 
 import java.io.IOException;
 import java.nio.charset.Charset;
+import java.text.ParseException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import be.nabu.eai.module.authorization.vm.VMAuthorizationService;
 import be.nabu.eai.module.authorization.vm.VMServiceAuthorizer;
@@ -26,6 +30,10 @@ import be.nabu.libs.artifacts.api.ExceptionDescription;
 import be.nabu.libs.artifacts.api.Feature;
 import be.nabu.libs.artifacts.api.FeaturedArtifact;
 import be.nabu.libs.authentication.api.Permission;
+import be.nabu.libs.evaluator.PathAnalyzer;
+import be.nabu.libs.evaluator.QueryParser;
+import be.nabu.libs.evaluator.types.api.TypeOperation;
+import be.nabu.libs.evaluator.types.operations.TypesOperationProvider;
 import be.nabu.libs.events.api.EventSubscription;
 import be.nabu.libs.http.api.HTTPRequest;
 import be.nabu.libs.http.api.HTTPResponse;
@@ -49,9 +57,13 @@ import be.nabu.libs.services.vm.step.Throw;
 import be.nabu.libs.types.api.ComplexContent;
 import be.nabu.libs.types.api.ComplexType;
 import be.nabu.libs.types.api.DefinedType;
+import be.nabu.libs.types.api.Type;
+import be.nabu.libs.types.structure.Structure;
 
 public class RESTService extends BaseContainerArtifact implements WebFragment, DefinedService, ServiceAuthorizerProvider, FeaturedArtifact, ArtifactWithExceptions {
 
+	private Logger logger = LoggerFactory.getLogger(getClass());
+	
 	public static class PermissionImplementation implements PermissionWithRole {
 		
 		private String context;
@@ -94,6 +106,7 @@ public class RESTService extends BaseContainerArtifact implements WebFragment, D
 		}
 	}
 	
+	@Deprecated
 	private void getAdditionalCodes(StepGroup group, List<Integer> codes) {
 		for (Step step : group.getChildren()) {
 			if (step instanceof Throw) {
@@ -110,11 +123,61 @@ public class RESTService extends BaseContainerArtifact implements WebFragment, D
 			}
 		}
 	}
-	
+	@Deprecated
 	public List<Integer> getAdditionalCodes() {
 		SimpleVMServiceDefinition service = getArtifact("implementation");
 		List<Integer> codes = new ArrayList<Integer>();
 		getAdditionalCodes(service.getRoot(), codes);
+		return codes;
+	}
+	
+	private Map<String, TypeOperation> analyzedOperations = new HashMap<String, TypeOperation>();
+	public TypeOperation getOperation(String query) throws ParseException {
+		if (!analyzedOperations.containsKey(query)) {
+			synchronized(analyzedOperations) {
+				if (!analyzedOperations.containsKey(query))
+					analyzedOperations.put(query, (TypeOperation) new PathAnalyzer<ComplexContent>(new TypesOperationProvider()).analyze(QueryParser.getInstance().parse(query)));
+			}
+		}
+		return analyzedOperations.get(query);
+	}
+	
+	private void getAdditionalResponseCodes(StepGroup group, Map<Integer, Type> codes) {
+		for (Step step : group.getChildren()) {
+			if (step instanceof Throw) {
+				String code = ((Throw) step).getCode();
+				if (code != null && code.matches("^[0-9]{3}$")) {
+					int parsed = Integer.parseInt(code);
+					if (!codes.containsKey(parsed)) {
+						String data = ((Throw) step).getData();
+						if (data != null && data.startsWith("=") && ((Throw) step).isWhitelist()) {
+							data = data.substring(1);
+							try {
+								TypeOperation operation = getOperation(data);
+								ComplexType pipeline = group.getPipeline(EAIResourceRepository.getInstance().getServiceContext());
+								Type dataType = operation.getReturnType(pipeline);
+								codes.put(parsed, dataType);
+							}
+							catch (Exception e) {
+								logger.error("Could not parse data query for throw: " + data, e);
+							}
+						}
+						else {
+							codes.put(parsed, null);
+						}
+					}
+				}
+			}
+			if (step instanceof StepGroup) {
+				getAdditionalResponseCodes((StepGroup) step, codes);
+			}
+		}
+	}
+	
+	public Map<Integer, Type> getAdditionalResponseCodes() {
+		SimpleVMServiceDefinition service = getArtifact("implementation");
+		Map<Integer, Type> codes = new HashMap<Integer, Type>();
+		getAdditionalResponseCodes(service.getRoot(), codes);
 		return codes;
 	}
 

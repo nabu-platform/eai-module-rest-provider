@@ -198,7 +198,7 @@ public class RESTFragmentListener implements EventHandler<HTTPRequest, HTTPRespo
 			if (method != null && !method.equalsIgnoreCase(request.getMethod())) {
 				return null;
 			}
-			URI uri = HTTPUtils.getURI(request, false);
+			URI uri = HTTPUtils.getURI(request, webApplication.isSecure());
 			String path = URIUtils.normalize(uri.getPath());
 			// not in this web artifact
 			if (!path.startsWith(serverPath)) {
@@ -385,6 +385,9 @@ public class RESTFragmentListener implements EventHandler<HTTPRequest, HTTPRespo
 			}
 			if (input.getType().get("domain") != null) {
 				input.set("domain", uri.getHost());
+			}
+			if (input.getType().get("scheme") != null) {
+				input.set("scheme", uri.getScheme());
 			}
 			if (input.getType().get("origin") != null) {
 				Header originHeader = MimeUtils.getHeader("Origin", request.getContent().getHeaders());
@@ -650,7 +653,7 @@ public class RESTFragmentListener implements EventHandler<HTTPRequest, HTTPRespo
 			// the actual context switching permission HAS to be executed against the original context
 			// note that IF you have an output as stream, we allow setting the service context as a query parameter
 			// this should not really open a security hole because the security of service context switching is tightly regulated, but we don't want to advertise this capability in general
-			String serviceContext = WebApplicationUtils.getServiceContext(token, webApplication, request, outputAsStream || usingHeaderOverrides ? "$serviceContext" : null);
+			String serviceContext = WebApplicationUtils.getServiceContext(token, webApplication, request, outputAsStream || usingHeaderOverrides ? "$serviceContext" : null, webArtifact.getConfig().isUseAsAuthorizationServiceContext() ? webArtifact.getId() : null);
 			
 			// after that, authorization is handled by the target connection
 			ServiceRuntime.getGlobalContext().put("service.context", serviceContext);
@@ -709,7 +712,7 @@ public class RESTFragmentListener implements EventHandler<HTTPRequest, HTTPRespo
 						allowed = potentialPermissionHandler.hasPotentialPermission(token, action);
 					}
 					if (!allowed) {
-						throw new HTTPException(token == null ? 401 : 403, "User does not have permission to execute the rest service", "User '" + (token == null ? Authenticator.ANONYMOUS : token.getName()) + "' does not have permission to '" + request.getMethod().toLowerCase() + "' on '" + path + "' with service: " + service.getId(), token);
+						throw new HTTPException(token == null ? 401 : 403, "User does not have permission to execute the rest service", "User '" + (token == null ? Authenticator.ANONYMOUS : token.getName()) + "' does not have permission to '" + action + "' on '" + context + "' with service: " + service.getId(), token);
 					}
 				}
 			}

@@ -346,6 +346,9 @@ public class RESTInterfaceArtifact extends JAXBArtifact<RESTInterfaceConfigurati
 			if (getConfig().isDomain()) {
 				input.add(new SimpleElementImpl<String>("domain", SimpleTypeWrapperFactory.getInstance().getWrapper().wrap(String.class), input));
 			}
+			if (getConfig().isScheme()) {
+				input.add(new SimpleElementImpl<String>("scheme", SimpleTypeWrapperFactory.getInstance().getWrapper().wrap(String.class), input));
+			}
 			if (getConfig().isOrigin()) {
 				input.add(new SimpleElementImpl<String>("origin", SimpleTypeWrapperFactory.getInstance().getWrapper().wrap(String.class), input));
 			}

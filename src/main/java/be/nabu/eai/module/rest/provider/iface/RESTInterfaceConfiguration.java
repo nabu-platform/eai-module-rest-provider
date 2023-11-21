@@ -20,9 +20,9 @@ import be.nabu.libs.types.api.annotation.Field;
 
 @XmlRootElement(name = "restInterface")
 @XmlType(propOrder = { "method", "path", "queryParameters", "cookieParameters", "sessionParameters", "headerParameters", "responseHeaders", "roles", "permissionAction", "permissionContext", "useServiceContextAsPermissionContext", "useWebApplicationAsPermissionContext", "useProjectAsPermissionContext", "useGlobalPermissionContext", "preferredResponseType",
-		"asynchronous", "inputAsStream", "outputAsStream", "input", "output", "sanitizeInput", "acceptedLanguages", "configurationType", "device", "token", "lenient", "namingConvention", "webApplicationId", "geoPosition", 
+		"asynchronous", "inputAsStream", "outputAsStream", "input", "output", "sanitizeInput", "acceptedLanguages", "configurationType", "device", "token", "lenient", "namingConvention", "webApplicationId", "geoPosition", "useAsAuthorizationServiceContext", 
 		"language", "allowFormBinding", "caseInsensitive", "cache", "allowCookiesWithoutReferer", "allowCookiesWithExternalReferer", "request", "allowHeaderAsQueryParameter", "useServerCache", "source", 
-		"allowRaw", "domain", "origin", "temporaryAlias", "temporarySecret", "temporaryCorrelationId", "rateLimitContext", "rateLimitAction", "ignoreOffline", "allowRootArrays", "captureErrors", "captureSuccessful", "parent", "limitedToInterface", "allowExplicitResponseCode" })
+		"allowRaw", "domain", "origin", "scheme", "temporaryAlias", "temporarySecret", "temporaryCorrelationId", "rateLimitContext", "rateLimitAction", "ignoreOffline", "allowRootArrays", "captureErrors", "captureSuccessful", "parent", "limitedToInterface", "allowExplicitResponseCode" })
 public class RESTInterfaceConfiguration {
 
 	private DefinedType input, output;
@@ -41,11 +41,12 @@ public class RESTInterfaceConfiguration {
 	private boolean language;
 	private boolean lenient = true, allowRaw;
 	private boolean webApplicationId, geoPosition;
+	private boolean useAsAuthorizationServiceContext;
 	private NamingConvention namingConvention;
 	private boolean allowFormBinding;
 	private boolean caseInsensitive;
 	private boolean cache, useServerCache;
-	private boolean request, source, domain, origin;
+	private boolean request, source, domain, origin, scheme;
 	// allow cookies to be used if there is no referer
 	// specifically IE does not send a referer when window.open is used
 	// this can potentially be an issue when downloading files via a REST service
@@ -382,6 +383,15 @@ public class RESTInterfaceConfiguration {
 	}
 	
 	@Field(group = "enrichInput")
+	@Comment(title = "Inject the scheme the request was done with, can be useful (in combination with domain) to construct links")
+	public boolean isScheme() {
+		return scheme;
+	}
+	public void setScheme(boolean scheme) {
+		this.scheme = scheme;
+	}
+	
+	@Field(group = "enrichInput")
 	@Comment(title = "Inject the origin of the request, this can be useful to craft redirect links back to it")
 	public boolean isOrigin() {
 		return origin;
@@ -446,6 +456,14 @@ public class RESTInterfaceConfiguration {
 	}
 	public void setGeoPosition(boolean geoPosition) {
 		this.geoPosition = geoPosition;
+	}
+	
+	@Field(group = "security", comment = "Authorization requests are usually handled by the web application service context. However, you can use the REST service as service context as well. Note that authentication is always handled by the web application context.")
+	public boolean isUseAsAuthorizationServiceContext() {
+		return useAsAuthorizationServiceContext;
+	}
+	public void setUseAsAuthorizationServiceContext(boolean useAsAuthorizationServiceContext) {
+		this.useAsAuthorizationServiceContext = useAsAuthorizationServiceContext;
 	}
 	
 	@Advanced
