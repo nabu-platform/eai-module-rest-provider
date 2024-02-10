@@ -146,26 +146,22 @@ public class RESTService extends BaseContainerArtifact implements WebFragment, D
 		for (Step step : group.getChildren()) {
 			if (step instanceof Throw) {
 				String code = ((Throw) step).getCode();
-				if (code != null && code.matches("^[0-9]{3}$")) {
-					int parsed = Integer.parseInt(code);
-					if (!codes.containsKey(parsed)) {
-						String data = ((Throw) step).getData();
-						if (data != null && data.startsWith("=") && ((Throw) step).isWhitelist()) {
-							data = data.substring(1);
-							try {
-								TypeOperation operation = getOperation(data);
-								ComplexType pipeline = group.getPipeline(EAIResourceRepository.getInstance().getServiceContext());
-								Type dataType = operation.getReturnType(pipeline);
-								codes.put(parsed, dataType);
-							}
-							catch (Exception e) {
-								logger.error("Could not parse data query for throw: " + data, e);
-							}
-						}
-						else {
-							codes.put(parsed, null);
-						}
+				int parsed = code == null || !code.matches("^[0-9]{3}$") ? 500 : Integer.parseInt(code);
+				String data = ((Throw) step).getData();
+				if (data != null && data.startsWith("=") && ((Throw) step).isWhitelist() && codes.get(parsed) == null) {
+					data = data.substring(1);
+					try {
+						TypeOperation operation = getOperation(data);
+						ComplexType pipeline = group.getPipeline(EAIResourceRepository.getInstance().getServiceContext());
+						Type dataType = operation.getReturnType(pipeline);
+						codes.put(parsed, dataType);
 					}
+					catch (Exception e) {
+						logger.error("Could not parse data query for throw: " + data, e);
+					}
+				}
+				else if (!codes.containsKey(parsed)) {
+					codes.put(parsed, null);
 				}
 			}
 			if (step instanceof StepGroup) {

@@ -112,6 +112,8 @@ import be.nabu.utils.mime.impl.PlainMimeEmptyPart;
  */
 public class RESTFragmentListener implements EventHandler<HTTPRequest, HTTPResponse> {
 
+	private static boolean DYNAMIC_204 = Boolean.parseBoolean(System.getProperty("dynamic.204", "true"));
+	
 	private Logger logger = LoggerFactory.getLogger(getClass());
 	private PathAnalysis pathAnalysis;
 	private String serverPath;
@@ -1020,7 +1022,7 @@ public class RESTFragmentListener implements EventHandler<HTTPRequest, HTTPRespo
 						}
 						// if there is by happenstance no output, return a 200
 						else {
-							responseCode = 200;
+							responseCode = DYNAMIC_204 ? 204 : 200;
 						}
 					}
 					List<Header> allHeaders = new ArrayList<Header>();
