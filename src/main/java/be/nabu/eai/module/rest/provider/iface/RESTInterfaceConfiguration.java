@@ -22,7 +22,7 @@ import be.nabu.libs.types.api.annotation.Field;
 @XmlType(propOrder = { "method", "path", "queryParameters", "cookieParameters", "sessionParameters", "headerParameters", "responseHeaders", "roles", "permissionAction", "permissionContext", "useServiceContextAsPermissionContext", "useWebApplicationAsPermissionContext", "useProjectAsPermissionContext", "useGlobalPermissionContext", "preferredResponseType",
 		"asynchronous", "inputAsStream", "outputAsStream", "input", "output", "sanitizeInput", "acceptedLanguages", "configurationType", "device", "token", "lenient", "namingConvention", "webApplicationId", "geoPosition", "useAsAuthorizationServiceContext", 
 		"language", "allowFormBinding", "caseInsensitive", "cache", "allowCookiesWithoutReferer", "allowCookiesWithExternalReferer", "request", "allowHeaderAsQueryParameter", "useServerCache", "source", 
-		"allowRaw", "domain", "origin", "scheme", "temporaryAlias", "temporarySecret", "temporaryCorrelationId", "rateLimitContext", "rateLimitAction", "ignoreOffline", "allowRootArrays", "captureErrors", "captureSuccessful", "parent", "limitedToInterface", "allowExplicitResponseCode" })
+		"allowRaw", "domain", "origin", "scheme", "temporaryAlias", "temporarySecret", "temporaryCorrelationId", "rateLimitContext", "rateLimitAction", "ignoreOffline", "allowRootArrays", "captureErrors", "captureSuccessful", "parent", "limitedToInterface", "allowExplicitResponseCode", "stubbed" })
 public class RESTInterfaceConfiguration {
 
 	private DefinedType input, output;
@@ -76,6 +76,9 @@ public class RESTInterfaceConfiguration {
 	
 	// only show specific facts
 	private boolean limitedToInterface;
+	
+	// generate stub data
+	private boolean stubbed;
 	
 	private DefinedType configurationType;
 	
@@ -529,6 +532,13 @@ public class RESTInterfaceConfiguration {
 	public void setAllowExplicitResponseCode(boolean allowExplicitResponseCode) {
 		this.allowExplicitResponseCode = allowExplicitResponseCode;
 	}
-
+	
+	@Field(comment = "Will return stub data rather than actually running the service")
+	public boolean isStubbed() {
+		return stubbed;
+	}
+	public void setStubbed(boolean stubbed) {
+		this.stubbed = stubbed;
+	}
 	
 }

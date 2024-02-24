@@ -83,6 +83,7 @@ import be.nabu.libs.types.api.Element;
 import be.nabu.libs.types.api.SimpleType;
 import be.nabu.libs.types.base.CollectionFormat;
 import be.nabu.libs.types.base.TypeBaseUtils;
+import be.nabu.libs.types.base.TypeBaseUtils.StubProfile;
 import be.nabu.libs.types.binding.api.MarshallableBinding;
 import be.nabu.libs.types.binding.api.UnmarshallableBinding;
 import be.nabu.libs.types.binding.api.Window;
@@ -249,6 +250,82 @@ public class RESTFragmentListener implements EventHandler<HTTPRequest, HTTPRespo
 			// do a content type check, we do not allow form content types by default
 			Header contentTypeHeader = MimeUtils.getHeader("Content-Type", request.getContent().getHeaders());
 			String contentType = contentTypeHeader == null ? null : contentTypeHeader.getValue().trim().replaceAll(";.*$", "");
+			
+			// if we are stubbed, we do very few checks and just return random data
+			if (EAIResourceRepository.isDevelopment() && webArtifact.getConfig().isStubbed()) {
+				if (webArtifact.getConfig().getOutput() != null) {
+					Object stub = TypeBaseUtils.stub(webArtifact.getConfig().getOutput(), new StubProfile(), webArtifact.getOutputDefinition().get("content").getProperties());
+					Integer maxOccurs = ValueUtils.getValue(MaxOccursProperty.getInstance(), webArtifact.getOutputDefinition().get("content").getProperties());
+					boolean isRootList = maxOccurs != null && (maxOccurs >= 2 || maxOccurs == 0);
+					ComplexContent output;
+					// if the output is an array 
+					if (isRootList) {
+						Structure arrayWrapper = new Structure();
+						arrayWrapper.setName("listWrapper");
+						arrayWrapper.add(TypeBaseUtils.clone(webArtifact.getOutputDefinition().get("content"), arrayWrapper));
+						output = arrayWrapper.newInstance();
+						output.set("content", stub);
+					}
+					else {
+						output = stub instanceof ComplexContent ? (ComplexContent) stub : ComplexContentWrapperFactory.getInstance().getWrapper().wrap(stub);
+					}
+					MarshallableBinding binding = request.getContent() == null ? null : getBindingProvider().getMarshallableBinding(output.getType(), charset, request.getContent().getHeaders());
+					if (binding != null) {
+						contentType = getBindingProvider().getContentType(binding);
+					}
+					else {
+						List<String> acceptedContentTypes = request.getContent() != null
+							? MimeUtils.getAcceptedContentTypes(request.getContent().getHeaders())
+							: new ArrayList<String>();
+						acceptedContentTypes.retainAll(ResponseMethods.allowedTypes);
+						WebResponseType preferredResponseType = webArtifact.getConfiguration().getPreferredResponseType();
+						if (preferredResponseType == null) {
+							preferredResponseType = WebResponseType.JSON;
+						}
+						contentType = acceptedContentTypes.isEmpty() ? preferredResponseType.getMimeType() : acceptedContentTypes.get(0);
+						if (contentType.equalsIgnoreCase(WebResponseType.XML.getMimeType())) {
+							// XML can't handle multiple roots, so we leave the wrapper in place in case we have a root array
+							binding = new XMLBinding(output.getType(), charset);
+						}
+						else if (contentType.equalsIgnoreCase(WebResponseType.JSON.getMimeType())) {
+							binding = new JSONBinding(output.getType(), charset);
+							if (webArtifact.getConfig().isAllowRaw()) {
+								((JSONBinding) binding).setAllowRaw(true);
+							}
+							// JSON can handle root arrays, but we only want it explicitly in this scenario
+							((JSONBinding) binding).setIgnoreRootIfArrayWrapper(isRootList);
+						}
+						else if (contentType.equalsIgnoreCase(WebResponseType.FORM_ENCODED.getMimeType())) {
+							binding = new FormBinding(output.getType(), charset);
+						}
+						else {
+							throw new HTTPException(500, "Unsupported response content type: " + contentType);
+						}
+					}
+					if (contentType == null) {
+						contentType = "application/octet-stream";
+					}
+					ByteArrayOutputStream content = new ByteArrayOutputStream();
+					binding.marshal(content, (ComplexContent) output);
+					byte[] byteArray = content.toByteArray();
+					PlainMimeContentPart part = new PlainMimeContentPart(null,
+						IOUtils.wrap(byteArray, true),
+						new MimeHeader("Content-Length", "" + byteArray.length),
+						new MimeHeader("Content-Type", contentType + "; charset=" + charset.name())
+					);
+					// we fed it bytes, it can be reopened
+					part.setReopenable(true);
+					if (allowEncoding) {
+						HTTPUtils.setContentEncoding(part, request.getContent().getHeaders());
+					}
+					HTTPResponse response = new DefaultHTTPResponse(request, 200, HTTPCodes.getMessage(200), part);
+					return response;
+				}
+				else {
+					HTTPResponse response = new DefaultHTTPResponse(request, 204, HTTPCodes.getMessage(200), new PlainMimeEmptyPart(null, new MimeHeader("Content-Length", "0")));
+					return response;
+				}
+			}
 			
 			// text/plain is allowed in HTML5 (https://developer.mozilla.org/en-US/docs/Web/HTML/Element/form)
 			// if we have an input as stream however, it is still allowed because we don't really care about the content type
