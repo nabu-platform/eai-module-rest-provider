@@ -26,9 +26,11 @@ import be.nabu.eai.repository.EAIResourceRepository;
 import be.nabu.eai.repository.artifacts.container.BaseContainerArtifact;
 import be.nabu.libs.artifacts.api.Artifact;
 import be.nabu.libs.artifacts.api.ArtifactWithExceptions;
+import be.nabu.libs.artifacts.api.ArtifactWithTodo;
 import be.nabu.libs.artifacts.api.ExceptionDescription;
 import be.nabu.libs.artifacts.api.Feature;
 import be.nabu.libs.artifacts.api.FeaturedArtifact;
+import be.nabu.libs.artifacts.api.Todo;
 import be.nabu.libs.authentication.api.Permission;
 import be.nabu.libs.evaluator.PathAnalyzer;
 import be.nabu.libs.evaluator.QueryParser;
@@ -60,7 +62,7 @@ import be.nabu.libs.types.api.DefinedType;
 import be.nabu.libs.types.api.Type;
 import be.nabu.libs.types.structure.Structure;
 
-public class RESTService extends BaseContainerArtifact implements WebFragment, DefinedService, ServiceAuthorizerProvider, FeaturedArtifact, ArtifactWithExceptions {
+public class RESTService extends BaseContainerArtifact implements WebFragment, DefinedService, ServiceAuthorizerProvider, FeaturedArtifact, ArtifactWithExceptions, ArtifactWithTodo {
 
 	private Logger logger = LoggerFactory.getLogger(getClass());
 	
@@ -366,6 +368,11 @@ public class RESTService extends BaseContainerArtifact implements WebFragment, D
 	public List<ExceptionDescription> getExceptions() {
 		SimpleVMServiceDefinition service = getArtifact("implementation");
 		return service == null ? null : service.getExceptions();
+	}
+	@Override
+	public List<Todo> getTodos() {
+		SimpleVMServiceDefinition service = getArtifact("implementation");
+		return service == null ? null : service.getTodos();
 	}
 
 }
