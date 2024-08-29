@@ -22,7 +22,7 @@ import be.nabu.libs.types.api.annotation.Field;
 @XmlType(propOrder = { "method", "path", "queryParameters", "cookieParameters", "sessionParameters", "headerParameters", "responseHeaders", "roles", "permissionAction", "permissionContext", "useServiceContextAsPermissionContext", "useWebApplicationAsPermissionContext", "useProjectAsPermissionContext", "useGlobalPermissionContext", "preferredResponseType",
 		"asynchronous", "inputAsStream", "outputAsStream", "input", "output", "sanitizeInput", "acceptedLanguages", "configurationType", "device", "token", "lenient", "namingConvention", "webApplicationId", "geoPosition", "useAsAuthorizationServiceContext", 
 		"language", "allowFormBinding", "caseInsensitive", "cache", "allowCookiesWithoutReferer", "allowCookiesWithExternalReferer", "request", "allowHeaderAsQueryParameter", "useServerCache", "source", 
-		"allowRaw", "domain", "origin", "scheme", "temporaryAlias", "temporarySecret", "temporaryCorrelationId", "rateLimitContext", "rateLimitAction", "ignoreOffline", "allowRootArrays", "captureErrors", "captureSuccessful", "parent", "limitedToInterface", "allowExplicitResponseCode", "stubbed" })
+		"allowRaw", "domain", "origin", "scheme", "temporaryAlias", "temporarySecret", "temporaryCorrelationId", "rateLimitContext", "rateLimitAction", "ignoreOffline", "allowRootArrays", "captureErrors", "captureSuccessful", "parent", "limitedToInterface", "allowExplicitResponseCode", "stubbed", "clusterLock" })
 public class RESTInterfaceConfiguration {
 
 	private DefinedType input, output;
@@ -47,6 +47,10 @@ public class RESTInterfaceConfiguration {
 	private boolean caseInsensitive;
 	private boolean cache, useServerCache;
 	private boolean request, source, domain, origin, scheme;
+	// you can limit the execution of a rest service to one per cluster
+	// this means we take a cluster wide lock before we attempt to run it
+	// if we can't get a lock, we throw a 423 exception
+	private boolean clusterLock;
 	// allow cookies to be used if there is no referer
 	// specifically IE does not send a referer when window.open is used
 	// this can potentially be an issue when downloading files via a REST service
@@ -541,4 +545,11 @@ public class RESTInterfaceConfiguration {
 		this.stubbed = stubbed;
 	}
 	
+	public boolean isClusterLock() {
+		return clusterLock;
+	}
+	public void setClusterLock(boolean clusterLock) {
+		this.clusterLock = clusterLock;
+	}
+
 }

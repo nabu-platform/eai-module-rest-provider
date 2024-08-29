@@ -23,6 +23,7 @@ import be.nabu.eai.module.web.application.WebFragmentConfiguration;
 import be.nabu.eai.module.web.application.api.PermissionWithRole;
 import be.nabu.eai.module.web.application.api.RateLimit;
 import be.nabu.eai.repository.EAIResourceRepository;
+import be.nabu.eai.repository.api.ClusteredServer;
 import be.nabu.eai.repository.artifacts.container.BaseContainerArtifact;
 import be.nabu.libs.artifacts.api.Artifact;
 import be.nabu.libs.artifacts.api.ArtifactWithExceptions;
@@ -32,11 +33,14 @@ import be.nabu.libs.artifacts.api.Feature;
 import be.nabu.libs.artifacts.api.FeaturedArtifact;
 import be.nabu.libs.artifacts.api.Todo;
 import be.nabu.libs.authentication.api.Permission;
+import be.nabu.libs.cluster.api.ClusterInstance;
+import be.nabu.libs.cluster.api.ClusterLock;
 import be.nabu.libs.evaluator.PathAnalyzer;
 import be.nabu.libs.evaluator.QueryParser;
 import be.nabu.libs.evaluator.types.api.TypeOperation;
 import be.nabu.libs.evaluator.types.operations.TypesOperationProvider;
 import be.nabu.libs.events.api.EventSubscription;
+import be.nabu.libs.http.HTTPException;
 import be.nabu.libs.http.api.HTTPRequest;
 import be.nabu.libs.http.api.HTTPResponse;
 import be.nabu.libs.http.server.HTTPServerUtils;
@@ -50,15 +54,18 @@ import be.nabu.libs.services.api.ServiceException;
 import be.nabu.libs.services.api.ServiceInstance;
 import be.nabu.libs.services.api.ServiceInstanceWithPipeline;
 import be.nabu.libs.services.api.ServiceInterface;
+import be.nabu.libs.services.api.ServiceRunner;
 import be.nabu.libs.services.vm.SimpleVMServiceDefinition;
 import be.nabu.libs.services.vm.VMServiceInstance;
 import be.nabu.libs.services.vm.api.Step;
 import be.nabu.libs.services.vm.api.StepGroup;
 import be.nabu.libs.services.vm.api.VMService;
 import be.nabu.libs.services.vm.step.Throw;
+import be.nabu.libs.types.TypeUtils;
 import be.nabu.libs.types.api.ComplexContent;
 import be.nabu.libs.types.api.ComplexType;
 import be.nabu.libs.types.api.DefinedType;
+import be.nabu.libs.types.api.Element;
 import be.nabu.libs.types.api.Type;
 import be.nabu.libs.types.structure.Structure;
 
@@ -283,7 +290,46 @@ public class RESTService extends BaseContainerArtifact implements WebFragment, D
 			}
 			@Override
 			public ComplexContent execute(ExecutionContext executionContext, ComplexContent input) throws ServiceException {
-				return newInstance.execute(executionContext, input);
+				RESTInterfaceArtifact iface = getInterface();
+				ClusterLock lock = null;
+				// check if we want to cluster lock this rest call
+				if (iface != null && iface.getConfig().isClusterLock()) {
+					ServiceRunner serviceRunner = EAIResourceRepository.getInstance().getServiceRunner();
+					if (serviceRunner instanceof ClusteredServer) {
+						ClusterInstance cluster = ((ClusteredServer) serviceRunner).getCluster();
+						// the key for the cluster lock is the service id and (optionally) all path-based parameters assuming they indicate identity of the resource in question
+						Structure pathParameters = iface.getPathParameters();
+						String lockKey = getId();
+						if (pathParameters != null && input != null) {
+							boolean first = true;
+							for (Element<?> pathParameter : TypeUtils.getAllChildren(pathParameters)) {
+								Object object = input.get("path/" + pathParameter.getName());
+								if (object != null) {
+									if (first) {
+										lockKey += ";";
+										first = false;
+									}
+									else {
+										lockKey += ",";
+									}
+									lockKey += pathParameter.getName() + "=" + object;
+								}
+							}
+						}
+						lock = cluster.lock(lockKey);
+						if (!lock.tryLock()) {
+							throw new HTTPException(423);
+						}
+					}
+				}
+				try {
+					return newInstance.execute(executionContext, input);
+				}
+				finally {
+					if (lock != null) {
+						lock.unlock();
+					}
+				}
 			}
 			@Override
 			public ComplexContent getPipeline() {
