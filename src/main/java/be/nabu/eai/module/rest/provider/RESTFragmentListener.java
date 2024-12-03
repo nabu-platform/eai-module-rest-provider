@@ -428,9 +428,11 @@ public class RESTFragmentListener implements EventHandler<HTTPRequest, HTTPRespo
 			// check validity of device
 			device = request.getContent() == null ? null : GlueListener.getDevice(webApplication.getRealm(), request.getContent().getHeaders());
 			if (device == null && (deviceValidator != null || (webArtifact.getConfig().getDevice() != null && webArtifact.getConfig().getDevice()))) {
-				device = GlueListener.newDevice(webApplication.getRealm(), request.getContent().getHeaders());
-				deviceId = device.getDeviceId();
-				isNewDevice = true;
+				if (!webArtifact.getConfig().isDeviceBestEffort()) {
+					device = GlueListener.newDevice(webApplication.getRealm(), request.getContent().getHeaders());
+					deviceId = device.getDeviceId();
+					isNewDevice = true;
+				}
 			}
 			
 			if (deviceValidator != null && !deviceValidator.isAllowed(token, device)) {

@@ -37,7 +37,7 @@ import be.nabu.libs.types.api.annotation.Field;
 
 @XmlRootElement(name = "restInterface")
 @XmlType(propOrder = { "method", "path", "queryParameters", "cookieParameters", "sessionParameters", "headerParameters", "responseHeaders", "roles", "permissionAction", "permissionContext", "useServiceContextAsPermissionContext", "useWebApplicationAsPermissionContext", "useProjectAsPermissionContext", "useGlobalPermissionContext", "preferredResponseType",
-		"asynchronous", "inputAsStream", "outputAsStream", "input", "output", "sanitizeInput", "acceptedLanguages", "configurationType", "device", "token", "lenient", "namingConvention", "webApplicationId", "geoPosition", "useAsAuthorizationServiceContext", 
+		"asynchronous", "inputAsStream", "outputAsStream", "input", "output", "sanitizeInput", "acceptedLanguages", "configurationType", "device", "deviceBestEffort", "token", "lenient", "namingConvention", "webApplicationId", "geoPosition", "useAsAuthorizationServiceContext", 
 		"language", "allowFormBinding", "caseInsensitive", "cache", "allowCookiesWithoutReferer", "allowCookiesWithExternalReferer", "request", "allowHeaderAsQueryParameter", "useServerCache", "source", 
 		"allowRaw", "domain", "origin", "scheme", "temporaryAlias", "temporarySecret", "temporaryCorrelationId", "rateLimitContext", "rateLimitAction", "ignoreOffline", "allowRootArrays", "captureErrors", "captureSuccessful", "parent", "limitedToInterface", "allowExplicitResponseCode", "stubbed", "clusterLock" })
 public class RESTInterfaceConfiguration {
@@ -63,7 +63,7 @@ public class RESTInterfaceConfiguration {
 	private boolean allowFormBinding;
 	private boolean caseInsensitive;
 	private boolean cache, useServerCache;
-	private boolean request, source, domain, origin, scheme;
+	private boolean request, source, domain, origin, scheme, deviceBestEffort;
 	// you can limit the execution of a rest service to one per cluster
 	// this means we take a cluster wide lock before we attempt to run it
 	// if we can't get a lock, we throw a 423 exception
@@ -278,6 +278,16 @@ public class RESTInterfaceConfiguration {
 		this.device = device;
 	}
 
+	// by default, if you enable device, it will be forcibly created if it does not exist yet (at the cookie level)
+	// however sometimes you just want to best effort capture it for some additional functionality
+	@Field(group = "enrichInput", show = "device == true")
+	public boolean isDeviceBestEffort() {
+		return deviceBestEffort;
+	}
+	public void setDeviceBestEffort(boolean deviceBestEffort) {
+		this.deviceBestEffort = deviceBestEffort;
+	}
+	
 	@Field(comment = "When lenient is enabled, input that is (partially) invalid will not always trigger exceptions.")
 	@Advanced
 	public boolean getLenient() {
