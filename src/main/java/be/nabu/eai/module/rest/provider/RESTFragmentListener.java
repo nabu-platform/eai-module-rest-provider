@@ -802,15 +802,33 @@ public class RESTFragmentListener implements EventHandler<HTTPRequest, HTTPRespo
 						action = webArtifact.getConfig().getPermissionAction();
 					}
 				}
-				if (action != null && !permissionHandler.hasPermission(token, context, action)) {
-					boolean allowed = false;
-					// if we don't have permission to run it as is, but we have explicitly (at design time) decided not to fill in a context
-					// we check the potential permissions as well
-					if (!hasDefinedContext && potentialPermissionHandler != null) {
-						allowed = potentialPermissionHandler.hasPotentialPermission(token, action);
+				// we allow comma separated list of actions
+				// this is primarily useful if you want to have a more "generic" action as to prevent the need for a lot of actions out of the box
+				// but also add a "specific" action if you do want to isolate a particular context
+				if (action != null) {
+					boolean hasPermission = false;
+					String[] partialActions = action.split(",");
+					for (String potentialAction : partialActions) {
+						if (permissionHandler.hasPermission(token, context, potentialAction.trim())) {
+							hasPermission = true;
+							break;
+						}
 					}
-					if (!allowed) {
-						throw new HTTPException(token == null ? 401 : 403, "User does not have permission to execute the rest service", "User '" + (token == null ? Authenticator.ANONYMOUS : token.getName()) + "' does not have permission to '" + action + "' on '" + context + "' with service: " + service.getId(), token);
+					if (!hasPermission) {
+						boolean allowed = false;
+						// if we don't have permission to run it as is, but we have explicitly (at design time) decided not to fill in a context
+						// we check the potential permissions as well
+						if (!hasDefinedContext && potentialPermissionHandler != null) {
+							for (String potentialAction : partialActions) {		
+								allowed = potentialPermissionHandler.hasPotentialPermission(token, potentialAction.trim());
+								if (allowed) {
+									break;
+								}
+							}
+						}
+						if (!allowed) {
+							throw new HTTPException(token == null ? 401 : 403, "User does not have permission to execute the rest service", "User '" + (token == null ? Authenticator.ANONYMOUS : token.getName()) + "' does not have permission to '" + action + "' on '" + context + "' with service: " + service.getId(), token);
+						}
 					}
 				}
 			}
