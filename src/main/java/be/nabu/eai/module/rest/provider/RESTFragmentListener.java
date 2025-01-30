@@ -910,7 +910,7 @@ public class RESTFragmentListener implements EventHandler<HTTPRequest, HTTPRespo
 						
 						ServiceRuntime cacheRuntime = new ServiceRuntime(cacheService, webApplication.getRepository().newExecutionContext(token));
 						
-						Header correlationHeader = MimeUtils.getHeader("X-Correlation-Id", request.getContent().getHeaders());
+						Header correlationHeader = MimeUtils.getHeader(ServerHeader.NAME_CORRELATION_ID, request.getContent().getHeaders());
 						if (correlationHeader != null) {
 							cacheRuntime.setCorrelationId(correlationHeader.getValue());
 						}
