@@ -118,6 +118,8 @@ import be.nabu.utils.io.api.ReadableContainer;
 import be.nabu.utils.mime.api.ContentPart;
 import be.nabu.utils.mime.api.Header;
 import be.nabu.utils.mime.api.ModifiableHeader;
+import be.nabu.utils.mime.api.MultiPart;
+import be.nabu.utils.mime.api.Part;
 import be.nabu.utils.mime.impl.FormatException;
 import be.nabu.utils.mime.impl.MimeHeader;
 import be.nabu.utils.mime.impl.MimeUtils;
@@ -686,6 +688,77 @@ public class RESTFragmentListener implements EventHandler<HTTPRequest, HTTPRespo
 						}
 					}
 				}
+			}
+			// for form multiparts, do a best effort mapping based on the form name
+			else if (input.getType().get("content") != null && input.getType().get("content").getType() instanceof ComplexType && request.getContent() instanceof MultiPart && "multipart/form-data".equalsIgnoreCase(contentType)) {
+				ComplexContent newInstance = ((ComplexType) input.getType().get("content").getType()).newInstance();
+				for (Part child : ((MultiPart) request.getContent())) {
+					if (child instanceof ContentPart) {
+						String formName = MimeUtils.getFormName(child.getHeaders());
+						if (formName != null) {
+							Element<?> element = newInstance.getType().get(formName);
+							if (element != null && element.getType() instanceof SimpleType) { 
+								newInstance.set(element.getName(), IOUtils.toInputStream(((ContentPart) child).getReadable()));
+							}
+							else if (element != null && element.getType() instanceof ComplexType) {
+								ComplexType complexChild = (ComplexType) element.getType();
+								Integer maxOccurs = ValueUtils.getValue(MaxOccursProperty.getInstance(), element.getProperties());
+								// if we have a list at the "root", it has to be json
+								boolean list = maxOccurs != null && maxOccurs != 1;
+								if (list) {
+									Structure wrapper = new Structure();
+									wrapper.setName("anonymous");
+									wrapper.add(TypeBaseUtils.clone(element, wrapper));
+									complexChild = wrapper;
+								}
+								String childContentType = MimeUtils.getContentType(child.getHeaders());
+								UnmarshallableBinding binding;
+								if (childContentType == null) {
+									throw new HTTPException(415, "Unsupported request content type", "Unsupported request content type: " + childContentType, token);
+								}
+								else if (childContentType.equalsIgnoreCase("application/xml") || childContentType.equalsIgnoreCase("text/xml")) {
+									binding = new XMLBinding(complexChild, charset);
+									if (webArtifact.getConfig().getLenient()) {
+										((XMLBinding) binding).setIgnoreUndefined(true);
+									}
+								}
+								else if (childContentType.equalsIgnoreCase("application/json") || childContentType.equalsIgnoreCase("application/javascript")) {
+									binding = new JSONBinding(complexChild, charset);
+									if (webArtifact.getConfig().getLenient()) {
+										((JSONBinding) binding).setIgnoreUnknownElements(true);
+									}
+									if (list) {
+										((JSONBinding) binding).setIgnoreRootIfArrayWrapper(true);
+									}
+								}
+								else {
+									binding = getBindingProvider().getUnmarshallableBinding(complexChild, charset, child.getHeaders());
+									if (binding == null) {
+										throw new HTTPException(415, "Unsupported request content type", "Unsupported request content type: " + childContentType, token);
+									}
+								}
+								try {
+									ComplexContent unmarshalled = binding.unmarshal(IOUtils.toInputStream(((ContentPart) child).getReadable()), new Window[0]);
+									newInstance.set(element.getName(), list ? unmarshalled.get(element.getName()) : unmarshalled);
+								}
+								catch (IOException e) {
+									throw new HTTPException(500, "Unexpected I/O exception", e, token);
+								}
+								catch (ParseException e) {
+									throw new HTTPException(400, "Message can not be parsed", "Message can not be parsed using specification: " + input.getType().get("content").getType(), e, token);
+								}
+							}
+						}
+						if (!webArtifact.getConfig().getLenient()) {
+							throw new HTTPException(400, "Unexpected field", "Unexpected field: " + formName, token);
+						}
+					}
+				}
+				HTTPResponse scanResponse = WebApplicationUtils.scanForVirus(service, webApplication, device, token, request, newInstance);
+				if (scanResponse != null) {
+					return scanResponse;
+				}
+				input.set("content", sanitize(newInstance, sanitizeInput));
 			}
 
 			// this allows for temporarily valid tokens like one-time use or limited in time access to e.g. a file download

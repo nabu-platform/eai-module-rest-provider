@@ -104,9 +104,9 @@ public class RESTInterfaceGUIManager extends BaseJAXBGUIManager<RESTInterfaceCon
 		);
 		displayWithAccordion.getPanes().add(titledPane);
 		
-		// if we want a limited view, scratch most accordions
+		// if we want a limited view, scratch most accordions, we leave the first (basic) and the last (type definitions)
 		if (instance.getConfig().isLimitedToInterface()) {
-			displayWithAccordion.getPanes().remove(1, displayWithAccordion.getPanes().size());
+			displayWithAccordion.getPanes().remove(1, displayWithAccordion.getPanes().size() - 1);
 		}
 		
 		ScrollPane scroll = new ScrollPane();

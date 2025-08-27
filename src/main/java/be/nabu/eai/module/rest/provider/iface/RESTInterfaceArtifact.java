@@ -162,13 +162,15 @@ public class RESTInterfaceArtifact extends JAXBArtifact<RESTInterfaceConfigurati
 			
 			if (getConfiguration().getHeaderParameters() != null && !getConfiguration().getHeaderParameters().trim().isEmpty()) {
 				List<String> names = Arrays.asList(getConfiguration().getHeaderParameters().split("[\\s,]+"));
-				for (int i = 0; i < names.size(); i++) {
-					names.set(i, RESTUtils.headerToField(names.get(i)));
-				}
-				List<String> available = removeUnused(header, names);
+				List<String> cleanedUpNames = new ArrayList<String>(); 
 				for (String name : names) {
-					if (!available.contains(name)) {
-						header.add(new SimpleElementImpl<String>(name, SimpleTypeWrapperFactory.getInstance().getWrapper().wrap(String.class), header, new ValueImpl<Integer>(MaxOccursProperty.getInstance(), 0), new ValueImpl<Integer>(MinOccursProperty.getInstance(), 0)));
+					cleanedUpNames.add(RESTUtils.headerToField(name));
+				}
+				List<String> available = removeUnused(header, cleanedUpNames);
+				for (String name : names) {
+					String cleanedUpName = RESTUtils.headerToField(name);
+					if (!available.contains(cleanedUpName)) {
+						header.add(new SimpleElementImpl<String>(cleanedUpName, SimpleTypeWrapperFactory.getInstance().getWrapper().wrap(String.class), header, new ValueImpl<Integer>(MaxOccursProperty.getInstance(), 0), new ValueImpl<Integer>(MinOccursProperty.getInstance(), 0), new ValueImpl<String>(AliasProperty.getInstance(), name)));
 					}
 				}
 			}
@@ -294,13 +296,15 @@ public class RESTInterfaceArtifact extends JAXBArtifact<RESTInterfaceConfigurati
 			
 			if (getConfiguration().getResponseHeaders() != null && !getConfiguration().getResponseHeaders().trim().isEmpty()) {
 				List<String> names = Arrays.asList(getConfiguration().getResponseHeaders().split("[\\s,]+"));
-				for (int i = 0; i < names.size(); i++) {
-					names.set(i, RESTUtils.headerToField(names.get(i)));
-				}
-				List<String> available = removeUnused(responseHeader, names);
+				List<String> cleanedUpNames = new ArrayList<String>();
 				for (String name : names) {
-					if (!available.contains(name)) {
-						responseHeader.add(new SimpleElementImpl<String>(name, SimpleTypeWrapperFactory.getInstance().getWrapper().wrap(String.class), responseHeader));
+					cleanedUpNames.add(RESTUtils.headerToField(name));
+				}
+				List<String> available = removeUnused(responseHeader, cleanedUpNames);
+				for (String name : names) {
+					String cleanedupName = RESTUtils.headerToField(name);
+					if (!available.contains(cleanedupName)) {
+						responseHeader.add(new SimpleElementImpl<String>(cleanedupName, SimpleTypeWrapperFactory.getInstance().getWrapper().wrap(String.class), responseHeader, new ValueImpl<String>(AliasProperty.getInstance(), name)));
 					}
 				}
 			}
@@ -480,12 +484,19 @@ public class RESTInterfaceArtifact extends JAXBArtifact<RESTInterfaceConfigurati
 
 	@Override
 	public boolean isInputAsStream() {
-		return getConfig().getInputAsStream() != null && getConfig().getInputAsStream();
+		RESTInterface parent = getConfig().getParent();
+		return 
+			(getConfig().getInputAsStream() != null && getConfig().getInputAsStream())
+			// we only inherit from parent if we don't set anything more specific
+			|| (getConfig().getInputAsStream() == null && getConfig().getInput() == null && parent != null && parent.isInputAsStream());
 	}
 
 	@Override
 	public boolean isOutputAsStream() {
-		return getConfig().getOutputAsStream() != null && getConfig().getOutputAsStream();
+		RESTInterface parent = getConfig().getParent();
+		return 
+			(getConfig().getOutputAsStream() != null && getConfig().getOutputAsStream())
+			|| (getConfig().getOutputAsStream() == null && getConfig().getOutput() == null && parent != null && parent.isOutputAsStream());
 	}
 
 	@Override
@@ -511,12 +522,22 @@ public class RESTInterfaceArtifact extends JAXBArtifact<RESTInterfaceConfigurati
 
 	@Override
 	public ComplexType getRequestBody() {
-		return (ComplexType) getConfig().getInput();
+		RESTInterface parent = getConfig().getParent();
+		ComplexType request = (ComplexType) getConfig().getInput();
+		if (request == null && parent != null && !isInputAsStream()) {
+			request = parent.getRequestBody();
+		}
+		return request;
 	}
 
 	@Override
 	public ComplexType getResponseBody() {
-		return (ComplexType) getConfig().getOutput();
+		RESTInterface parent = getConfig().getParent();
+		ComplexType request = (ComplexType) getConfig().getOutput();
+		if (request == null && parent != null && !isOutputAsStream()) {
+			request = parent.getResponseBody();
+		}
+		return request;
 	}
 
 }
