@@ -686,6 +686,11 @@ public class RESTFragmentListener implements EventHandler<HTTPRequest, HTTPRespo
 						catch (ParseException e) {
 							throw new HTTPException(400, "Message can not be parsed", "Message can not be parsed using specification: " + input.getType().get("content").getType(), e, token);
 						}
+						// when the parser can parse the value but when setting in the structure it can not be minimally converted into the necessary field type, this will currently throw an illegalargumentexception (see structureinstance::convert)
+						// we want to return a 400 as well in this case, otherwise it will be a 500
+						catch (IllegalArgumentException e) {
+							throw new HTTPException(400, "Message can not be parsed", "Message can not be parsed using specification: " + input.getType().get("content").getType(), e, token);
+						}
 					}
 				}
 			}
