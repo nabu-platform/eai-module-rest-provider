@@ -89,6 +89,11 @@ public class RESTInterfaceManager extends JAXBArtifactManager<RESTInterfaceConfi
 	}
 
 	public static List<Validation<?>> format(ResourceContainer<?> container, ComplexType artifact, String name) throws IOException {
+		if (artifact == null) {
+			Structure structure = new Structure();
+			structure.setName(toStructureName(name));
+			artifact = structure;
+		}
 		Resource resource = container.getChild(name);
 		if (resource == null) {
 			resource = ((ManageableContainer<?>) container).create(name, "application/xml");
@@ -104,5 +109,13 @@ public class RESTInterfaceManager extends JAXBArtifactManager<RESTInterfaceConfi
 		finally {
 			writable.close();
 		}
+	}
+
+	private static String toStructureName(String name) {
+		String structureName = name.replaceAll("\\.xml$", "");
+		if (structureName.startsWith("input-")) {
+			structureName = structureName.substring("input-".length());
+		}
+		return structureName;
 	}
 }
