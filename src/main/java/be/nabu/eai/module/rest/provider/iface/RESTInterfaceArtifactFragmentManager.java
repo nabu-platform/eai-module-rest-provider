@@ -303,23 +303,9 @@ public class RESTInterfaceArtifactFragmentManager extends BaseNodeMetadataArtifa
 	}
 
 	private String toXml(Document document) throws Exception {
-		removeWhitespaceNodes(document);
 		ByteArrayOutputStream output = new ByteArrayOutputStream();
 		EAIRepositoryUtils.prettyPrint(document, output);
 		return new String(output.toByteArray(), StandardCharsets.UTF_8);
-	}
-
-	private void removeWhitespaceNodes(Node node) {
-		NodeList childNodes = node.getChildNodes();
-		for (int i = childNodes.getLength() - 1; i >= 0; i--) {
-			Node child = childNodes.item(i);
-			if (child.getNodeType() == Node.TEXT_NODE && (child.getTextContent() == null || child.getTextContent().trim().isEmpty())) {
-				node.removeChild(child);
-			}
-			else {
-				removeWhitespaceNodes(child);
-			}
-		}
 	}
 
 	protected void preserveHiddenFields(RESTInterfaceConfiguration current, RESTInterfaceConfiguration parsed) {
@@ -461,15 +447,7 @@ public class RESTInterfaceArtifactFragmentManager extends BaseNodeMetadataArtifa
 		return false;
 	}
 
-	@Override
-	public List<Validation<?>> deleteFragment(RESTInterfaceArtifact artifact, String path) {
-		throw new UnsupportedOperationException("Deleting fragments is not supported for REST interfaces");
-	}
 
-	@Override
-	public List<Validation<?>> createFragment(RESTInterfaceArtifact artifact, String path, String content) {
-		throw new UnsupportedOperationException("Creating fragments is not supported for REST interfaces");
-	}
 
 	@Override
 	public String getGuidelines(List<String> fragmentTypes) {
@@ -500,6 +478,6 @@ public class RESTInterfaceArtifactFragmentManager extends BaseNodeMetadataArtifa
 
 	@Override
 	public String getArtifactCategory() {
-		return "service";
+		return "specification";
 	}
 }

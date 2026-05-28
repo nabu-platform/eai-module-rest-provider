@@ -1,6 +1,7 @@
 package be.nabu.eai.module.rest.provider;
 
 import java.io.ByteArrayOutputStream;
+import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
@@ -19,6 +20,7 @@ import be.nabu.eai.module.rest.provider.iface.RESTInterfaceManager;
 import be.nabu.eai.module.types.structure.StructureManager;
 import be.nabu.eai.repository.EAIResourceRepository;
 import be.nabu.eai.repository.EAIRepositoryUtils;
+import be.nabu.libs.resources.ResourceUtils;
 import be.nabu.eai.repository.api.CreatableArtifactFragmentManager;
 import be.nabu.eai.repository.api.Entry;
 import be.nabu.eai.repository.api.Node;
@@ -128,15 +130,7 @@ public class RESTServiceArtifactFragmentManager extends BaseNodeMetadataArtifact
 		return super.updateFragment(artifact, path, oldContent, newContent);
 	}
 
-	@Override
-	public List<Validation<?>> deleteFragment(RESTService artifact, String path) {
-		throw new UnsupportedOperationException("Deleting fragments is not supported for REST services");
-	}
 
-	@Override
-	public List<Validation<?>> createFragment(RESTService artifact, String path, String content) {
-		throw new UnsupportedOperationException("Creating fragments is not supported for REST services");
-	}
 
 	@Override
 	public String getGuidelines(List<String> fragmentTypes) {
@@ -331,7 +325,10 @@ public class RESTServiceArtifactFragmentManager extends BaseNodeMetadataArtifact
 		public String getContent() {
 			ResourceEntry entry = (ResourceEntry) be.nabu.eai.repository.EAIResourceRepository.getInstance().getEntry(artifact.getId());
 			try {
-				Resource resource = EAIRepositoryUtils.getResource(entry, "private/implementation/" + SERVICE_PATH, false);
+				Resource resource = ResourceUtils.resolve(entry.getContainer(), "private/implementation/" + SERVICE_PATH);
+				if (resource == null) {
+					throw new FileNotFoundException("Can not find private/implementation/" + SERVICE_PATH);
+				}
 				try (ResourceReadableContainer readable = new ResourceReadableContainer((ReadableResource) resource)) {
 					ByteArrayOutputStream output = new ByteArrayOutputStream();
 					VMServiceManager.formatSequence(IOUtils.wrap(output), VMServiceManager.parseSequence(IOUtils.wrap(IOUtils.toBytes(readable), true)), true, Arrays.asList("id", "x", "y", "lineNumber"));
