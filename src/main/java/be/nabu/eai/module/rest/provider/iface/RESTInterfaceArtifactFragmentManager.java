@@ -199,6 +199,10 @@ public class RESTInterfaceArtifactFragmentManager extends BaseNodeMetadataArtifa
 		appendStructure(document, root, artifact.getPathParameters(), PATH_PARAMETERS);
 		appendStructure(document, root, artifact.getResponseHeaderParameters(), RESPONSE_HEADER);
 		appendPermissionContextType(document, root, artifact.getConfig());
+		removeDirectChild(root, "useServiceContextAsPermissionContext");
+		removeDirectChild(root, "useWebApplicationAsPermissionContext");
+		removeDirectChild(root, "useProjectAsPermissionContext");
+		removeDirectChild(root, "useGlobalPermissionContext");
 		removeDirectChild(root, "queryParameters");
 		removeDirectChild(root, "cookieParameters");
 		removeDirectChild(root, "sessionParameters");
