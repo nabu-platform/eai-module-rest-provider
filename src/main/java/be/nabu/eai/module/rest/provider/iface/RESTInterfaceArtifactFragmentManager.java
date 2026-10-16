@@ -157,7 +157,7 @@ public class RESTInterfaceArtifactFragmentManager extends BaseNodeMetadataArtifa
 				return validations;
 			}
 			Document document = parseDocument(newContent);
-			String rawConfig = stripEmbeddedStructures(document);
+			String rawConfig = stripEmbeddedStructures(parseDocument(newContent));
 			RESTInterfaceConfiguration parsedConfig = parseUpdatedConfig(entry, rawConfig);
 			preserveHiddenFields(artifact.getConfig(), parsedConfig);
 			applyPermissionContextType(document, parsedConfig, validations);
@@ -240,7 +240,10 @@ public class RESTInterfaceArtifactFragmentManager extends BaseNodeMetadataArtifa
 		}
 		String xml = marshalStructure(structure, name);
 		Element parsed = parseDocument(xml).getDocumentElement();
-		root.appendChild(document.importNode(parsed, true));
+		Element embedded = (Element) document.importNode(parsed, true);
+		document.renameNode(embedded, null, name);
+		embedded.removeAttribute("name");
+		root.appendChild(embedded);
 	}
 
 	private String marshalStructure(Structure structure, String name) throws Exception {
@@ -285,7 +288,10 @@ public class RESTInterfaceArtifactFragmentManager extends BaseNodeMetadataArtifa
 			return marshalStructure(null, name);
 		}
 		Document single = DocumentBuilderFactory.newInstance().newDocumentBuilder().newDocument();
-		single.appendChild(single.importNode(child, true));
+		Element structure = (Element) single.importNode(child, true);
+		single.renameNode(structure, null, "structure");
+		structure.setAttribute("name", name);
+		single.appendChild(structure);
 		return toXml(single);
 	}
 

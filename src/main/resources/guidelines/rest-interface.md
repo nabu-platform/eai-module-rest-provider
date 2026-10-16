@@ -15,6 +15,13 @@ Structure definitions:
 - `header`: Request header structure.
 - `responseHeader`: Response header structure.
 - `pathParameters`: Path parameter structure.
+Use these semantic elements directly, for example:
+```xml
+<query>
+	<field minOccurs="0" name="limit" type="java.lang.Long"/>
+</query>
+```
+Do not replace them with generic elements such as `<structure name="query">`.
 Before editing any structure definition, load skill `artifact:structure` if you haven't yet.
 The variable names must follow naming conventions, use `alias` property if the actual name does not.
 Don't change the alias unless you have good reason to.
